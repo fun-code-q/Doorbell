@@ -4,13 +4,13 @@
             "description": "Contactless QR-based doorbell system. Secure, private, and instant text notifications for your home or office.",
             "icons": [
                           {
-                                          "src": "https://s10.aconvert.com/convert/p3r68-cdx67/a81ze-bq1el.png",
+                                          "src": "icons/icon-192x192.png",
                                           "type": "image/png",
                                           "sizes": "192x192",
                                           "purpose": "any"
                           },
                           {
-                                          "src": "https://s10.aconvert.com/convert/p3r68-cdx67/aydcc-n632w.png",
+                                          "src": "icons/icon-512x512.png",
                                           "type": "image/png",
                                           "sizes": "512x512",
                                           "purpose": "any"

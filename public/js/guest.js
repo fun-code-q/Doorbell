@@ -77,20 +77,6 @@
   }
   resolveQrToken();
 
-  document.getElementById("lang-en").addEventListener("click", function() {
-    I18n.setLang("en");
-    updateLangBtns();
-  });
-  document.getElementById("lang-de").addEventListener("click", function() {
-    I18n.setLang("de");
-    updateLangBtns();
-  });
-
-  function updateLangBtns() {
-    document.getElementById("lang-en").classList.toggle("active", I18n.currentLang === "en");
-    document.getElementById("lang-de").classList.toggle("active", I18n.currentLang === "de");
-  }
-
   Utils.registerServiceWorker();
 
   function updateOffline() {
