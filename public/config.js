@@ -9,20 +9,20 @@
 
   const CONFIG = {
     /* Supabase — these MUST be set before use */
-    SUPABASE_URL: runtime.SUPABASE_URL || "https://REPLACE_WITH_YOUR_PROJECT.supabase.co",
+    SUPABASE_URL: runtime.SUPABASE_URL || "https://ebvotxcyfbzzoisgkdui.supabase.co",
     /* Keep both names for backwards compatibility with existing code */
-    SUPABASE_ANON_KEY: runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || "REPLACE_WITH_YOUR_ANON_KEY",
-    SUPABASE_KEY: runtime.SUPABASE_KEY || runtime.SUPABASE_ANON_KEY || "REPLACE_WITH_YOUR_ANON_KEY",
+    SUPABASE_ANON_KEY: runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVib3R4Y3lmYnp6b2lzZ2tkdWkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0MzU0MTI2MSwiZXhwIjoyMDU5MTE3MjYxfQ.S6_U7M9G_1zX-T6Y0N8x5Z8Pq_H1T8z8Pq_H1T8z8Pq",
+    SUPABASE_KEY: runtime.SUPABASE_KEY || runtime.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVib3R4Y3lmYnp6b2lzZ2tkdWkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0MzU0MTI2MSwiZXhwIjoyMDU5MTE3MjYxfQ.S6_U7M9G_1zX-T6Y0N8x5Z8Pq_H1T8z8Pq_H1T8z8Pq",
 
     /* ntfy.sh — use a long, unguessable topic name */
-    NTFY_TOPIC: runtime.NTFY_TOPIC || "smart_doorbell_REPLACE_WITH_SECRET_ID",
+    NTFY_TOPIC: runtime.NTFY_TOPIC || "qr_doorbell_v3_992",
 
     /* Encryption — a shared passphrase for encrypting messages and images.
        This should be set to a strong, unique value per deployment.
        The owner dashboard uses this to decrypt messages.
        WARNING: If this is public, encryption provides obfuscation only.
        For true security, use Supabase Edge Functions for server-side encryption. */
-    ENCRYPTION_PASSPHRASE: runtime.ENCRYPTION_PASSPHRASE || "CHANGE_THIS_TO_A_STRONG_RANDOM_PASSPHRASE_v3",
+    ENCRYPTION_PASSPHRASE: runtime.ENCRYPTION_PASSPHRASE || "DoorbellSecure_2026_Vault",
 
     /* App */
     APP_VERSION: "3.1.0",
