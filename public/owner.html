@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://ntfy.sh https://*.ntfy.sh; media-src 'self' https://assets.mixkit.co data: blob:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="description" content="QR Doorbell Owner Dashboard - Manage visitor rings">
+    <meta name="theme-color" content="#f59e0b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="QR Doorbell">
+    <title>QR Doorbell - Dashboard</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@300;400;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <style>
+        .auth-overlay{position:fixed;inset:0;background:var(--bg-obsidian);z-index:2000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s ease}
+        .auth-overlay.hidden{display:none}
+        .auth-card{background:var(--glass);border:1px solid var(--glass-border);padding:3rem 2.5rem;border-radius:var(--radius-xl);backdrop-filter:blur(60px);box-shadow:var(--shadow-lg);text-align:center;max-width:420px;width:92%}
+        .auth-title{font-family:var(--font-heading);font-size:2.2rem;font-weight:800;color:var(--accent);letter-spacing:-2px;margin-bottom:0.5rem}
+        .auth-subtitle{color:var(--text-muted);margin-bottom:2rem;font-size:0.9rem}
+        .auth-form .form-group{text-align:left;margin-bottom:1.5rem}
+        .main-view{display:none;padding:2rem 1.5rem;max-width:960px;margin:0 auto;animation:fadeInUp 0.5s ease}
+        .main-view.visible{display:block}
+        .section-header{font-family:var(--font-heading);font-size:1.8rem;margin:2.5rem 0 1.5rem;color:var(--accent);letter-spacing:-1px;display:flex;justify-content:space-between;align-items:center}
+        .header-actions{display:flex;gap:0.75rem;align-items:center}
+        .setup-overlay{position:fixed;inset:0;background:var(--bg-obsidian);z-index:2000;display:none;align-items:center;justify-content:center}
+        .setup-overlay.visible{display:flex}
+        .setup-card{background:var(--glass);border:1px solid var(--glass-border);padding:3.5rem 2.5rem;border-radius:var(--radius-xl);backdrop-filter:blur(60px);box-shadow:var(--shadow-lg);text-align:center;max-width:420px;width:92%}
+        .qr-output{display:none;flex-direction:column;align-items:center;margin-top:2rem;padding:2rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg)}
+        .qr-output.visible{display:flex}
+        .qr-canvas{background:#fff;border-radius:var(--radius-lg);padding:1.5rem}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:2rem}
+        .stat-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:1.5rem;text-align:center}
+        .stat-value{font-family:var(--font-heading);font-size:2rem;font-weight:800;color:var(--accent);line-height:1}
+        .stat-label{font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-top:0.5rem}
+        .filter-bar{display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
+        .filter-bar select,.filter-bar input{padding:0.7rem 1rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:0.9rem}
+        .filter-bar input{flex:1;min-width:200px}
+        .tab-nav{display:flex;gap:0.5rem;margin-bottom:2rem;border-bottom:1px solid var(--glass-border);padding-bottom:0.5rem}
+        .tab-btn{padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-weight:600;font-size:0.9rem;border-radius:var(--radius-sm);transition:all 0.15s ease}
+        .tab-btn.active{background:var(--accent);color:var(--text-inverse)}
+        .tab-btn:hover:not(.active){background:var(--glass-hover);color:var(--text-primary)}
+        .tab-content{display:none}
+        .tab-content.active{display:block}
+        .door-point-item{padding:1rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center}
+        .audit-entry{padding:1rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);margin-bottom:0.75rem;font-size:0.9rem}
+        .audit-time{color:var(--text-muted);font-size:0.8rem}
+        .audit-action{font-weight:600;color:var(--accent)}
+        @media(max-width:640px){.stats-grid{grid-template-columns:repeat(2,1fr)}.filter-bar{flex-direction:column}.filter-bar input{min-width:100%}.header-actions{gap:0.5rem}.section-header{flex-direction:column;align-items:flex-start;gap:1rem}}
+    </style>
+</head>
+<body>
+    <div class="mesh-bg"></div>
+
+    <div class="offline-banner" id="offline-banner" role="alert">
+        <span data-i18n="offline_message">Connection lost. Some features may not be available.</span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:none;margin-left:1rem" data-action="retry-connection" data-i18n="retry">Retry</button>
+    </div>
+
+    <div class="setup-overlay" id="setup-overlay">
+        <div class="setup-card">
+            <h1 class="auth-title">&#9881;&#65039; <span data-i18n="vault_setup">System Setup</span></h1>
+            <p class="auth-subtitle" data-i18n="vault_setup_desc">Please configure your Supabase credentials in config.js before accessing the dashboard.</p>
+        </div>
+    </div>
+
+    <div class="auth-overlay" id="auth-overlay">
+        <div class="auth-card">
+            <div class="auth-title">QR VAULT</div>
+            <p class="auth-subtitle" data-i18n="owner_signin_subtitle">Sign in to manage your doorbell</p>
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label class="form-label" for="login-email" data-i18n="email">Email</label>
+                    <input type="email" id="login-email" class="form-input" required autocomplete="email" aria-label="Email address">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="login-password" data-i18n="password">Password</label>
+                    <input type="password" id="login-password" class="form-input" required autocomplete="current-password" aria-label="Password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full" data-i18n="sign_in">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <header class="header">
+        <div class="logo">QR VAULT</div>
+        <div class="header-actions">
+            <select id="house-switcher" class="form-input" style="width:auto;min-width:150px;padding:0.45rem 0.75rem" aria-label="Select house"></select>
+            <button class="btn btn-secondary btn-sm" data-action="add-house" aria-label="Add house">+ House</button>
+            <div id="notif-badge" class="notif-badge" style="display:none;" aria-label="Unread notifications">
+                <span class="notif-badge-icon" aria-hidden="true">&#128276;</span>
+                <span class="notif-badge-count" id="notif-count">0</span>
+            </div>
+            <div class="lang-toggle" role="group" aria-label="Language selection">
+                <button class="lang-btn active" id="lang-en" data-action="toggle-lang" aria-label="English">EN</button>
+                <button class="lang-btn" id="lang-de" data-action="toggle-lang" aria-label="Deutsch">DE</button>
+            </div>
+            <button class="btn btn-secondary btn-sm" data-action="toggle-theme" aria-label="Toggle dark/light mode">&#9790;</button>
+            <button class="btn btn-secondary btn-sm" data-action="sign-out" data-i18n="sign_out">Sign Out</button>
+            <div id="status-dot" class="status-dot" aria-label="Connection status"></div>
+        </div>
+    </header>
+
+    <div id="main-view" class="main-view">
+        <div class="tab-nav" role="tablist">
+            <button class="tab-btn active" data-tab="dashboard" role="tab" aria-selected="true" data-i18n="dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="qr-factory" role="tab" aria-selected="false" data-i18n="point_factory">Point Factory</button>
+            <button class="tab-btn" data-tab="doors" role="tab" aria-selected="false" data-i18n="door_management">Doors</button>
+            <button class="tab-btn" data-tab="settings" role="tab" aria-selected="false" data-i18n="settings">Settings</button>
+            <button class="tab-btn" data-tab="audit" role="tab" aria-selected="false" data-i18n="audit_log">Audit</button>
+        </div>
+
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-today">0</div>
+                    <div class="stat-label" data-i18n="rings_today">Rings Today</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-pending">0</div>
+                    <div class="stat-label" data-i18n="pending">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-avg">-</div>
+                    <div class="stat-label" data-i18n="avg_response">Avg Response</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-total">0</div>
+                    <div class="stat-label" data-i18n="total_rings">Total Rings</div>
+                </div>
+            </div>
+
+            <div class="section-header">
+                <span data-i18n="activity_log">Activity Log</span>
+                <div style="display:flex;gap:0.5rem">
+                    <button class="btn btn-secondary btn-sm" data-action="export-csv" data-i18n="export_csv">Export CSV</button>
+                </div>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" id="search-rings" data-i18n-placeholder="search_rings" placeholder="Search rings..." aria-label="Search rings">
+                <select id="filter-rings" aria-label="Filter rings by status">
+                    <option value="all" data-i18n="all">All</option>
+                    <option value="waiting" data-i18n="waiting">Waiting</option>
+                    <option value="responded" data-i18n="responded">Responded</option>
+                </select>
+            </div>
+            <div id="flood-warning" class="flood-warning" style="display:none;" role="alert">
+                <span aria-hidden="true">&#9888;</span> High activity detected — multiple rings in short time.
+            </div>
+
+            <div id="feed-list">
+                <p class="text-center text-muted" style="padding:3rem" data-i18n="monitoring">Monitoring secure signals...</p>
+            </div>
+
+            <div class="pagination" id="pagination">
+                <button class="pagination-btn" data-action="load-more" data-i18n="next">Load More</button>
+            </div>
+        </div>
+
+        <div id="tab-qr-factory" class="tab-content">
+            <div class="section-header" data-i18n="point_factory">Point Factory</div>
+            <div class="glass-card" style="padding:2rem">
+                <div style="display:flex;gap:1rem;flex-wrap:wrap">
+                    <input type="text" id="door-in" class="form-input" data-i18n-placeholder="point_identifier" placeholder="Point Identifier (e.g. Penthouse)" style="flex:1;min-width:200px" aria-label="Door point name">
+                    <button class="btn btn-primary" data-action="generate-qr" data-i18n="generate">GENERATE</button>
+                </div>
+                <div id="qr-out" class="qr-output">
+                    <canvas id="canvas-qr" class="qr-canvas"></canvas>
+                    <button class="btn btn-secondary" style="margin-top:1.5rem" data-action="download-qr" data-i18n="archive_png">ARCHIVE PNG</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-doors" class="tab-content">
+            <div class="section-header">
+                <span data-i18n="door_management">Door Management</span>
+            </div>
+            <div class="glass-card" style="padding:2rem;margin-bottom:2rem">
+                <div style="display:flex;gap:1rem;flex-wrap:wrap">
+                    <input type="text" id="new-door-name" class="form-input" data-i18n-placeholder="door_name" placeholder="Door name" style="flex:1;min-width:150px" aria-label="Door name">
+                    <input type="text" id="new-door-desc" class="form-input" data-i18n-placeholder="description" placeholder="Description (optional)" style="flex:2;min-width:200px" aria-label="Door description">
+                    <button class="btn btn-primary" data-action="add-door" data-i18n="add_door">Add Door</button>
+                </div>
+                <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;border-top:1px solid var(--glass-border);padding-top:1rem">
+                    <input type="email" id="member-email" class="form-input" placeholder="Owner/member email" style="flex:2;min-width:220px" aria-label="Member email">
+                    <select id="member-role" class="form-input" style="flex:1;min-width:140px">
+                        <option value="manager">Manager</option>
+                        <option value="viewer">Viewer</option>
+                        <option value="owner">Owner</option>
+                    </select>
+                    <button class="btn btn-secondary" data-action="add-member">Add Member</button>
+                </div>
+            </div>
+            <div id="door-points-list"></div>
+        </div>
+
+        <div id="tab-settings" class="tab-content">
+            <div class="section-header" data-i18n="settings">Settings</div>
+            <div class="glass-card" style="padding:2rem">
+                <div class="settings-section">
+                    <div class="settings-section-title" data-i18n="notification_sound">Notifications</div>
+                    <div class="settings-item">
+                        <div>
+                            <div class="settings-item-label" data-i18n="notification_sound">Sound</div>
+                        </div>
+                        <label class="toggle"><input type="checkbox" id="setting-sound" checked><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="settings-item">
+                        <div>
+                            <div class="settings-item-label" data-i18n="vibration">Vibration</div>
+                        </div>
+                        <label class="toggle"><input type="checkbox" id="setting-vibration" checked><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="settings-item">
+                        <div>
+                            <div class="settings-item-label" data-i18n="push_enabled">Push Notifications</div>
+                        </div>
+                        <label class="toggle"><input type="checkbox" id="setting-push" checked><span class="toggle-slider"></span></label>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <div class="settings-section-title" data-i18n="language">Preferences</div>
+                    <div class="settings-item">
+                        <div>
+                            <div class="settings-item-label" data-i18n="language">Language</div>
+                        </div>
+                        <select id="setting-language" class="form-input" style="width:auto;padding:0.5rem 1rem">
+                            <option value="en">English</option>
+                            <option value="de">Deutsch</option>
+                        </select>
+                    </div>
+                    <div class="settings-item">
+                        <div>
+                            <div class="settings-item-label" data-i18n="auto_logout">Auto Logout (min)</div>
+                        </div>
+                        <input type="number" id="setting-auto-logout" value="15" min="1" max="120" class="form-input" style="width:80px;padding:0.5rem 1rem" aria-label="Auto logout minutes">
+                    </div>
+                </div>
+                <button class="btn btn-primary" data-action="save-settings" data-i18n="save">Save</button>
+            </div>
+        </div>
+
+        <div id="tab-audit" class="tab-content">
+            <div class="section-header" data-i18n="audit_log">Audit Log</div>
+            <div id="audit-list">
+                <p class="text-center text-muted" style="padding:3rem" data-i18n="no_audit_entries">No audit entries found</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <script src="/js/utils.js"></script>
+    <script src="/js/crypto.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/owner-bootstrap.js"></script>
+</body>
+</html>

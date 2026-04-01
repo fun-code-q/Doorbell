@@ -1,0 +1,32 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Config with real credentials (users copy config.js → config.local.js)
+public/config.local.js
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# Editor
+.vscode/
+.idea/
+
+# Generated assets
+public/generated-icons/
+
+# Private Signing Keys
+*.keystore
+
+# Private Configurations
+public/config.local.js

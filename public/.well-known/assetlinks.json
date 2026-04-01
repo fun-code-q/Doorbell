@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hamburgbuzz.qrdoorbell",
+      "sha256_cert_fingerprints": [
+        "C5:A7:69:E8:44:1B:84:44:BC:AE:79:C9:EE:BE:3B:90:7C:7E:88:9F:78:22:BE:2B:06:E9:CA:DE:F5:AB:52:96"
+      ]
+    }
+  }
+]

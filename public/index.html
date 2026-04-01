@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://ntfy.sh https://*.ntfy.sh; media-src 'self' https://assets.mixkit.co data: blob:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="description" content="Smart QR Doorbell - Contactless visitor check-in system">
+    <meta name="theme-color" content="#f59e0b">
+    <meta property="og:title" content="QR Doorbell">
+    <meta property="og:description" content="Smart QR-based doorbell system">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="QR Doorbell">
+    <title>QR Doorbell - Guest</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@300;400;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <style>
+        .guest-container{width:92%;max-width:440px;text-align:center;padding:3rem 2rem;border-radius:3.5rem;background:var(--glass);backdrop-filter:blur(50px);border:1px solid var(--glass-border);box-shadow:0 40px 120px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.05);animation:appAppear 1.2s cubic-bezier(0.16,1,0.3,1);position:relative}
+        @keyframes appAppear{0%{opacity:0;transform:scale(0.95) translateY(50px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+        .guest-logo{font-family:var(--font-heading);font-size:3rem;margin-bottom:0.2rem;letter-spacing:-3px;font-weight:800;color:#fff;text-shadow:0 0 20px rgba(245,158,11,0.2)}
+        .location-badge{display:inline-block;padding:0.65rem 1.4rem;background:rgba(245,158,11,0.05);border-radius:3rem;color:var(--accent);font-size:0.8rem;font-weight:700;margin-bottom:2.5rem;border:1px solid rgba(245,158,11,0.1);text-transform:uppercase;letter-spacing:2px}
+        .status-text{margin-top:1.5rem;font-size:0.85rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+        .reply-drawer{margin-top:2rem;padding:2rem;border-radius:2.5rem;background:rgba(245,158,11,0.03);border:1px solid var(--accent);display:none;animation:drawerSlide 0.7s cubic-bezier(0.34,1.56,0.64,1)}
+        @keyframes drawerSlide{0%{opacity:0;transform:translateY(50px) scale(0.9)}100%{opacity:1;transform:translateY(0) scale(1)}}
+        .reply-header{font-size:0.7rem;text-transform:uppercase;letter-spacing:3px;color:var(--accent);margin-bottom:0.8rem}
+        .reply-message{font-family:var(--font-heading);font-size:1.6rem;font-weight:800;color:#fff}
+        .lang-toggle-wrapper{position:absolute;top:1rem;right:1rem;z-index:10}
+        .lang-toggle{display:flex;background:var(--glass);border:1px solid var(--glass-border);border-radius:0.75rem;overflow:hidden}
+        .lang-btn{padding:0.4rem 0.8rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-weight:600;font-size:0.8rem;transition:all 0.15s ease}
+        .lang-btn.active{background:var(--accent);color:var(--text-inverse)}
+        .timestamp-display{font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem}
+        .error-state{display:none;padding:2rem;text-align:center}
+        .error-state.visible{display:block}
+        .error-state .error-icon{font-size:3rem;margin-bottom:1rem}
+        .error-state .error-message{color:var(--text-secondary);margin-bottom:1.5rem}
+        .offline-indicator{display:none;padding:0.75rem 1rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:1rem;color:var(--error);font-size:0.85rem;margin-bottom:1.5rem;text-align:center}
+        .offline-indicator.visible{display:block}
+        .confirmation-screen{display:none;text-align:center;padding:2rem 0}
+        .confirmation-screen.visible{display:block}
+        .confirmation-icon{font-size:4rem;color:var(--success);margin-bottom:1rem}
+        .confirmation-text{font-family:var(--font-heading);font-size:1.4rem;font-weight:700;color:var(--text-primary);margin-bottom:0.5rem}
+        .confirmation-sub{color:var(--text-muted);font-size:0.9rem}
+        .encryption-badge{display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.8rem;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:2rem;font-size:0.7rem;color:var(--success);font-weight:600;margin-bottom:1.5rem}
+        .encryption-badge .lock-icon{font-size:0.9rem}
+        .char-counter{font-size:0.7rem;color:var(--text-muted);text-align:right;margin-top:0.3rem}
+        .char-counter.warning{color:var(--warning)}
+        .char-counter.error{color:var(--error)}
+        .scam-warning{display:none;padding:0.75rem 1rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:1rem;color:var(--warning);font-size:0.8rem;margin-top:0.5rem;text-align:left}
+        .scam-warning.visible{display:block}
+        .message-bubble{background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:1.5rem;padding:1.2rem;margin-top:1rem;text-align:left}
+        .message-bubble-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--text-muted);margin-bottom:0.5rem}
+        .message-bubble-text{font-size:0.95rem;color:var(--text-secondary);line-height:1.5}
+        @media(max-width:480px){.guest-container{padding:2rem 1.5rem;border-radius:2.5rem}.guest-logo{font-size:2.4rem}.camera-wrapper,.preview-container{height:200px;border-radius:2rem}}
+        @media(min-width:768px){.guest-container{max-width:500px;padding:4rem 3rem}.camera-wrapper,.preview-container{height:320px}}
+    </style>
+</head>
+<body>
+    <div class="mesh-bg"></div>
+    <div class="offline-indicator" id="offline-indicator" role="alert">
+        <span data-i18n="offline_message">You are offline. Ring will be sent when connected.</span>
+    </div>
+    <div class="lang-toggle-wrapper">
+        <div class="lang-toggle" role="group" aria-label="Language selection">
+            <button class="lang-btn active" id="lang-en" data-action="set-lang-en" aria-label="English">EN</button>
+            <button class="lang-btn" id="lang-de" data-action="set-lang-de" aria-label="Deutsch">DE</button>
+        </div>
+    </div>
+    <div class="guest-container" role="main">
+        <div class="guest-logo">QR BELL</div>
+        <div id="main-form">
+            <div class="form-group">
+                <textarea id="message" class="form-textarea" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500" aria-label="Visitor message"></textarea>
+                <div class="char-counter" id="char-counter">0 / 500</div>
+                <div class="scam-warning" id="scam-warning" role="alert">
+                    <span aria-hidden="true">&#9888;</span> Links and URLs are not allowed for security reasons.
+                </div>
+            </div>
+            <div id="encryption-indicator" class="encryption-badge" style="display:none;">
+                <span class="lock-icon" aria-hidden="true">&#128274;</span>
+                <span>End-to-end encrypted</span>
+            </div>
+            <button id="ring-btn" class="btn btn-primary btn-full btn-lg" data-action="send-ring" aria-label="Send doorbell ring">
+                <span data-i18n="ring_button">Ring Bell</span>
+            </button>
+            <div id="status-msg" class="status-text" aria-live="polite" data-i18n="status_standby">Standby for signal</div>
+            <div id="timestamp-display" class="timestamp-display"></div>
+        </div>
+        <div id="confirmation-screen" class="confirmation-screen">
+            <div class="confirmation-icon" aria-hidden="true">&#9989;</div>
+            <div class="confirmation-text" data-i18n="ring_button_sent">Signal Sent!</div>
+            <div class="confirmation-sub" data-i18n="status_sent">Signal Received by Center</div>
+        </div>
+        <div id="error-state" class="error-state">
+            <div class="error-icon" aria-hidden="true">&#9888;&#65039;</div>
+            <div class="error-message" id="error-message"></div>
+            <button class="btn btn-secondary" data-action="retry-capture" aria-label="Retry"><span data-i18n="retry">Retry</span></button>
+        </div>
+        <div id="reply-drawer" class="reply-drawer">
+            <div class="reply-header" data-i18n="reply_inbound">Signal Inbound</div>
+            <div id="reply-text" class="reply-message" data-i18n="reply_waiting">Please wait...</div>
+        </div>
+    </div>
+
+    <script src="/config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/utils.js"></script>
+    <script src="/js/crypto.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/guest.js"></script>
+</body>
+</html>
