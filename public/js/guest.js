@@ -11,7 +11,6 @@
 
   var ringBtn = document.getElementById("ring-btn");
   var messageInput = document.getElementById("message");
-  var statusMsg = document.getElementById("status-msg");
   var confirmationScreen = document.getElementById("confirmation-screen");
   var errorState = document.getElementById("error-state");
   var errorMessage = document.getElementById("error-message");
@@ -32,7 +31,6 @@
   I18n.init();
 
   if (!CONFIG.hasSupabaseConfig || !CONFIG.hasSupabaseConfig()) {
-    statusMsg.textContent = I18n.t("status_error");
     ringBtn.disabled = true;
     Utils.showToast("System is not configured. Please contact the owner.", "error", 0);
     return;
@@ -47,7 +45,6 @@
   }
 
   function setInvalidQrState(message) {
-    statusMsg.textContent = message || "Invalid or inactive QR code";
     errorMessage.textContent = message || "This QR code is not active.";
     errorState.classList.add("visible");
     ringBtn.disabled = true;
@@ -70,7 +67,6 @@
       }
       resolvedDoor = row;
       ringBtn.disabled = false;
-      statusMsg.textContent = I18n.t("status_standby");
     } catch (err) {
       console.error("QR resolve failed:", err);
       setInvalidQrState("This QR code is invalid or inactive.");
@@ -146,15 +142,14 @@
 
     var now = Date.now();
     if (now - lastRingTime < CONFIG.RATE_LIMIT_WINDOW) {
-      statusMsg.textContent = I18n.t("status_rate_limited");
       Utils.vibrate([100, 50, 100]);
+      Utils.showToast(I18n.t("status_rate_limited"), "warning");
       return;
     }
 
     ringSent = true;
     lastRingTime = now;
     ringBtn.disabled = true;
-    statusMsg.textContent = I18n.t("status_transmitting");
     var hideLoading = Utils.showLoading(I18n.t("loading"));
     
     // UI Feedback: Start Ringing Animation
@@ -205,7 +200,6 @@
       if (ringContainer) ringContainer.classList.remove("is-ringing");
       playGuestChime();
       
-      statusMsg.textContent = I18n.t("status_sent");
       confirmationScreen.classList.add("visible");
       document.getElementById("main-form").style.display = "none";
       Utils.vibrate([50, 50, 100]);
@@ -224,7 +218,6 @@
             if (payload.new.owner_reply) {
               replyDrawer.style.display = "block";
               replyText.textContent = payload.new.owner_reply;
-              statusMsg.textContent = I18n.t("reply_inbound");
               Utils.vibrate([100, 50, 100, 50, 100]);
               playResponseChime();
             }
@@ -237,7 +230,6 @@
       hideLoading();
       if (ringContainer) ringContainer.classList.remove("is-ringing");
       console.error("Ring error:", err);
-      statusMsg.textContent = I18n.t("status_error");
       errorMessage.textContent = err.message || I18n.t("error_generic");
       errorState.classList.add("visible");
       ringSent = false;
@@ -277,7 +269,6 @@
     errorState.classList.remove("visible");
     ringSent = false;
     ringBtn.disabled = false;
-    statusMsg.textContent = I18n.t("status_standby");
   });
 
   // Instruction Modal Logic
