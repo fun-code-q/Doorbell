@@ -1,37 +1,37 @@
 {
-    "name": "Doorbell",
-    "short_name": "Doorbell",
-    "description": "Contactless QR-based doorbell system. Secure, private, and instant text notifications for your home or office.",
-    "icons": [
-          {
-                  "src": "icons/icon-192x192.png",
-                  "type": "image/jpeg",
-                  "sizes": "192x192"
-          },
-          {
-                  "src": "icons/icon-512x512.png",
-                  "type": "image/jpeg",
-                  "sizes": "512x512"
-          }
-    ],
-    "start_url": "index.html",
-    "display": "standalone",
-    "background_color": "#000000",
-    "theme_color": "#000000",
-    "screenshots": [
-          {
-                  "src": "icons/screenshot-1.png",
-                  "type": "image/jpeg",
-                  "sizes": "1080x1920",
-                  "form_factor": "narrow",
-                  "label": "Guest view"
-          },
-          {
-                  "src": "icons/screenshot-2.png",
-                  "type": "image/jpeg",
-                  "sizes": "1080x1920",
-                  "form_factor": "wide",
-                  "label": "Owner view"
-          }
-    ]
+      "name": "Doorbell",
+      "short_name": "Doorbell",
+      "description": "Contactless QR-based doorbell system. Secure, private, and instant text notifications for your home or office.",
+      "icons": [
+              {
+                        "src": "icons/icon-192x192.png",
+                        "type": "image/jpeg",
+                        "sizes": "192x192"
+              },
+              {
+                        "src": "icons/icon-512x512.png",
+                        "type": "image/jpeg",
+                        "sizes": "512x512"
+              }
+      ],
+      "start_url": "index.html",
+      "display": "standalone",
+      "background_color": "#000000",
+      "theme_color": "#000000",
+      "screenshots": [
+              {
+                        "src": "icons/screenshot-1.png",
+                        "type": "image/jpeg",
+                        "sizes": "1080x1920",
+                        "form_factor": "narrow",
+                        "label": "Guest view"
+              },
+              {
+                        "src": "icons/screenshot-2.png",
+                        "type": "image/jpeg",
+                        "sizes": "1080x1920",
+                        "form_factor": "wide",
+                        "label": "Owner view"
+              }
+      ]
 }
