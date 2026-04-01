@@ -38,6 +38,7 @@ const App = {
     this.setupOnlineOfflineHandler();
     this.setupTheme();
     this.setupEventListeners();
+    this.requestNotificationPermission();
     if (Auth.isAuthenticated()) await this.loadDashboard();
   },
 
@@ -485,7 +486,7 @@ const App = {
         self.populateDoorFilter();
         self.detectFlood();
         self.renderRings();
-        self.playNotificationSound();
+        self.playNotificationSound(payload.new);
         Utils.showToast(I18n.t("new_ring_alert", { door: payload.new.door_location }), "info");
         Utils.vibrate([100, 50, 100]);
       })
@@ -496,13 +497,32 @@ const App = {
       .subscribe();
   },
 
-  playNotificationSound: function() {
+  requestNotificationPermission: function() {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  },
+
+  playNotificationSound: function(ringData) {
     if (!this.soundEnabled) return;
     try {
       var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
       audio.volume = 0.5;
       audio.play().catch(function() {});
     } catch (_e) {}
+
+    // Native Notification for Standalone APK
+    if ("Notification" in window && Notification.permission === "granted") {
+      var title = "QR Doorbell: " + (ringData ? ringData.door_location : "New Ring");
+      var options = {
+        body: ringData && ringData.guest_message_encrypted ? "Visitor left an encrypted message" : (ringData && ringData.guest_message ? ringData.guest_message : "Someone is at the door"),
+        icon: "/icons-192.png",
+        vibrate: [200, 100, 200],
+        tag: "doorbell-ring",
+        renotify: true
+      };
+      new Notification(title, options);
+    }
   },
 
   loadDoorPoints: async function() {

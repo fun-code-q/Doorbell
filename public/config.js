@@ -14,8 +14,7 @@
     SUPABASE_ANON_KEY: runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVib3R4Y3lmYnp6b2lzZ2tkdWkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0MzU0MTI2MSwiZXhwIjoyMDU5MTE3MjYxfQ.S6_U7M9G_1zX-T6Y0N8x5Z8Pq_H1T8z8Pq_H1T8z8Pq",
     SUPABASE_KEY: runtime.SUPABASE_KEY || runtime.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVib3R4Y3lmYnp6b2lzZ2tkdWkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0MzU0MTI2MSwiZXhwIjoyMDU5MTE3MjYxfQ.S6_U7M9G_1zX-T6Y0N8x5Z8Pq_H1T8z8Pq_H1T8z8Pq",
 
-    /* ntfy.sh — use a long, unguessable topic name */
-    NTFY_TOPIC: runtime.NTFY_TOPIC || "qr_doorbell_v3_992",
+    /* ntfy.sh — removed for standalone APK */
 
     /* Encryption — a shared passphrase for encrypting messages and images.
        This should be set to a strong, unique value per deployment.

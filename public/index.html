@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://ntfy.sh https://*.ntfy.sh; media-src 'self' https://assets.mixkit.co data: blob:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' https://assets.mixkit.co data: blob:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="description" content="Smart QR Doorbell - Contactless visitor check-in system">
     <meta name="theme-color" content="#f59e0b">
@@ -59,8 +59,148 @@
         .message-bubble{background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:1.5rem;padding:1.2rem;margin-top:1rem;text-align:left}
         .message-bubble-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--text-muted);margin-bottom:0.5rem}
         .message-bubble-text{font-size:0.95rem;color:var(--text-secondary);line-height:1.5}
-        @media(max-width:480px){.guest-container{padding:2rem 1.5rem;border-radius:2.5rem}.guest-logo{font-size:2.4rem}.camera-wrapper,.preview-container{height:200px;border-radius:2rem}}
-        @media(min-width:768px){.guest-container{max-width:500px;padding:4rem 3rem}.camera-wrapper,.preview-container{height:320px}}
+        @media(max-width:480px){.guest-container{padding:2rem 1.5rem;border-radius:2.5rem}.guest-logo{font-size:2.4rem}}
+        @media(min-width:768px){.guest-container{max-width:500px;padding:4rem 3rem}}
+        
+        .info-container {
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: center;
+        }
+        .info-btn {
+            background: none;
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+        .info-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: scale(1.1);
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: var(--z-modal);
+            padding: 2rem;
+        }
+        .modal-overlay.visible {
+            display: flex;
+        }
+        .modal-content {
+            padding: 2.5rem;
+            text-align: center;
+            max-width: 400px;
+        }
+        .modal-content h2 { margin-bottom: 1rem; color: var(--accent); }
+        .modal-content p { margin-bottom: 2rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
+        
+        /* Premium Reply Card */
+        .reply-card {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border-radius: 2rem;
+            background: linear-gradient(135deg, rgba(245,158,11,0.05), rgba(0,0,0,0.4));
+            border: 1px solid var(--accent);
+            display: none;
+            animation: drawerSlide 0.7s cubic-bezier(0.34,1.56,0.64,1);
+            box-shadow: 0 0 30px rgba(245,158,11,0.1);
+        }
+        .reply-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent);
+            margin-bottom: 1rem;
+        }
+        .reply-card-text {
+            font-family: var(--font-heading);
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: dotUpdate 1s infinite alternate;
+        }
+        @keyframes dotUpdate { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.2); } }
+        
+        .message-dropdown-container {
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+        .message-toggle {
+            background: none;
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 0.6rem 1rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .message-toggle:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+        .message-toggle.active {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+        .message-content {
+            display: none;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--accent);
+            border-top: none;
+            border-bottom-left-radius: 1.5rem;
+            border-bottom-right-radius: 1.5rem;
+            animation: slideDown 0.3s ease forwards;
+        }
+        .message-content.visible {
+            display: block;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .ring-btn-container {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+        .ring-pulse {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -69,29 +209,43 @@
         <span data-i18n="offline_message">You are offline. Ring will be sent when connected.</span>
     </div>
     <div class="lang-toggle-wrapper">
-        <div class="lang-toggle" role="group" aria-label="Language selection">
-            <button class="lang-btn active" id="lang-en" data-action="set-lang-en" aria-label="English">EN</button>
-            <button class="lang-btn" id="lang-de" data-action="set-lang-de" aria-label="Deutsch">DE</button>
+        <div class="lang-toggle interactive" role="group" aria-label="Language selection">
+            <button class="lang-btn active interactive" id="lang-en" data-action="set-lang-en" aria-label="English">EN</button>
+            <button class="lang-btn interactive" id="lang-de" data-action="set-lang-de" aria-label="Deutsch">DE</button>
         </div>
     </div>
     <div class="guest-container" role="main">
-        <div class="guest-logo">QR BELL</div>
+        <div class="guest-logo">QR DoorBell</div>
         <div id="main-form">
-            <div class="form-group">
-                <textarea id="message" class="form-textarea" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500" aria-label="Visitor message"></textarea>
-                <div class="char-counter" id="char-counter">0 / 500</div>
-                <div class="scam-warning" id="scam-warning" role="alert">
-                    <span aria-hidden="true">&#9888;</span> Links and URLs are not allowed for security reasons.
+            <div class="message-dropdown-container">
+                <button class="message-toggle interactive" id="message-toggle-btn">
+                    <span data-i18n="add_note">Add a Note?</span>
+                    <span class="toggle-icon">＋</span>
+                </button>
+                <div class="message-content interactive" id="message-drawer">
+                    <textarea id="message" class="form-textarea interactive" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500" aria-label="Visitor message"></textarea>
+                    <div class="char-counter" id="char-counter">0 / 500</div>
+                    <div class="scam-warning" id="scam-warning" role="alert">
+                        <span aria-hidden="true">&#9888;</span> Links/URLs not allowed.
+                    </div>
                 </div>
             </div>
+            
             <div id="encryption-indicator" class="encryption-badge" style="display:none;">
                 <span class="lock-icon" aria-hidden="true">&#128274;</span>
                 <span>End-to-end encrypted</span>
             </div>
-            <button id="ring-btn" class="btn btn-primary btn-full btn-lg" data-action="send-ring" aria-label="Send doorbell ring">
-                <span data-i18n="ring_button">Ring Bell</span>
-            </button>
-            <div id="status-msg" class="status-text" aria-live="polite" data-i18n="status_standby">Standby for signal</div>
+            
+            <div class="ring-btn-container" id="ring-container">
+                <div class="ring-pulse"></div>
+                <button id="ring-btn" class="btn btn-primary btn-full btn-lg interactive" data-action="send-ring" aria-label="Send doorbell ring">
+                    <span data-i18n="ring_button">Ring Bell</span>
+                </button>
+            </div>
+            
+            <div class="info-container">
+                <button class="info-btn interactive" id="info-modal-trigger" aria-label="Instructions">ⓘ</button>
+            </div>
             <div id="timestamp-display" class="timestamp-display"></div>
         </div>
         <div id="confirmation-screen" class="confirmation-screen">
@@ -102,11 +256,23 @@
         <div id="error-state" class="error-state">
             <div class="error-icon" aria-hidden="true">&#9888;&#65039;</div>
             <div class="error-message" id="error-message"></div>
-            <button class="btn btn-secondary" data-action="retry-capture" aria-label="Retry"><span data-i18n="retry">Retry</span></button>
+            <button class="btn btn-secondary interactive" data-action="retry-capture" aria-label="Retry"><span data-i18n="retry">Retry</span></button>
         </div>
-        <div id="reply-drawer" class="reply-drawer">
-            <div class="reply-header" data-i18n="reply_inbound">Signal Inbound</div>
-            <div id="reply-text" class="reply-message" data-i18n="reply_waiting">Please wait...</div>
+        <div id="reply-drawer" class="reply-card">
+            <div class="reply-card-header">
+                <span class="pulse-dot"></span>
+                <span data-i18n="reply_inbound">Signal Inbound</span>
+            </div>
+            <div id="reply-text" class="reply-card-text" data-i18n="reply_waiting">Please wait...</div>
+        </div>
+    </div>
+
+    <!-- Instruction Modal -->
+    <div id="instruction-modal" class="modal-overlay">
+        <div class="modal-content glass-card animate-scale-in">
+            <h2 data-i18n="how_it_works">How it works</h2>
+            <p data-i18n="instruction_desc">Your secure signal is end-to-end encrypted and sent directly to the owner. Please wait for a reply on this screen.</p>
+            <button class="btn btn-primary btn-full interactive" id="close-modal-btn" data-i18n="close">Close</button>
         </div>
     </div>
 

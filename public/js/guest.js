@@ -156,6 +156,13 @@
     ringBtn.disabled = true;
     statusMsg.textContent = I18n.t("status_transmitting");
     var hideLoading = Utils.showLoading(I18n.t("loading"));
+    
+    // UI Feedback: Start Ringing Animation
+    var ringContainer = document.getElementById("ring-container");
+    if (ringContainer) ringContainer.classList.add("is-ringing");
+    
+    // Haptic Feedback for Guest
+    Utils.vibrate([10, 30, 10]);
 
     try {
       var messageText = messageInput.value ? messageInput.value.trim() : null;
@@ -191,22 +198,13 @@
       var ringData = Array.isArray(insertResult.data) ? insertResult.data[0] : insertResult.data;
       if (!ringData || !ringData.id) throw new Error("Failed to create doorbell ring");
 
-      try {
-        await fetch("https://ntfy.sh/" + CONFIG.NTFY_TOPIC, {
-          method: "POST",
-          body: JSON.stringify({
-            title: "QR Bell: Signal Received",
-            message: "Assistant: Visitor signal at door point",
-            click: window.location.origin + "/owner.html",
-            tags: ["doorbell"],
-            priority: 4
-          })
-        });
-      } catch (e) {
-        console.warn("ntfy notification failed:", e);
-      }
-
+      /* ntfy removal — standalone APK uses Supabase Realtime now */
+      
+      // UI Feedback: Success Chime & Stop Animation
       hideLoading();
+      if (ringContainer) ringContainer.classList.remove("is-ringing");
+      playGuestChime();
+      
       statusMsg.textContent = I18n.t("status_sent");
       confirmationScreen.classList.add("visible");
       document.getElementById("main-form").style.display = "none";
@@ -228,6 +226,7 @@
               replyText.textContent = payload.new.owner_reply;
               statusMsg.textContent = I18n.t("reply_inbound");
               Utils.vibrate([100, 50, 100, 50, 100]);
+              playResponseChime();
             }
           }
         )
@@ -236,6 +235,7 @@
       timestampDisplay.textContent = Utils.formatDate(new Date());
     } catch (err) {
       hideLoading();
+      if (ringContainer) ringContainer.classList.remove("is-ringing");
       console.error("Ring error:", err);
       statusMsg.textContent = I18n.t("status_error");
       errorMessage.textContent = err.message || I18n.t("error_generic");
@@ -245,12 +245,61 @@
     }
   });
 
+  // Dropdown Toggle Logic
+  var toggleBtn = document.getElementById("message-toggle-btn");
+  var drawer = document.getElementById("message-drawer");
+  if (toggleBtn && drawer) {
+    toggleBtn.addEventListener("click", function() {
+      var isVisible = drawer.classList.contains("visible");
+      drawer.classList.toggle("visible", !isVisible);
+      toggleBtn.classList.toggle("active", !isVisible);
+      toggleBtn.querySelector(".toggle-icon").textContent = isVisible ? "＋" : "－";
+    });
+  }
+
+  function playGuestChime() {
+    try {
+      var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3");
+      audio.volume = 0.4;
+      audio.play().catch(function() {});
+    } catch (_e) {}
+  }
+
+  function playResponseChime() {
+    try {
+      var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3");
+      audio.volume = 0.5;
+      audio.play().catch(function() {});
+    } catch (_e) {}
+  }
+
   document.querySelector('[data-action="retry-capture"]').addEventListener("click", function() {
     errorState.classList.remove("visible");
     ringSent = false;
     ringBtn.disabled = false;
     statusMsg.textContent = I18n.t("status_standby");
   });
+
+  // Instruction Modal Logic
+  var infoTrigger = document.getElementById("info-modal-trigger");
+  var infoModal = document.getElementById("instruction-modal");
+  var closeModalBtn = document.getElementById("close-modal-btn");
+
+  if (infoTrigger && infoModal) {
+    infoTrigger.addEventListener("click", function() {
+      infoModal.classList.add("visible");
+      Utils.vibrate([20]);
+    });
+  }
+
+  if (closeModalBtn && infoModal) {
+    closeModalBtn.addEventListener("click", function() {
+      infoModal.classList.remove("visible");
+    });
+    infoModal.addEventListener("click", function(e) {
+      if (e.target === infoModal) infoModal.classList.remove("visible");
+    });
+  }
 
   setInterval(function() {
     if (timestampDisplay.textContent) {
