@@ -1,28 +1,28 @@
-const CACHE_VERSION = "v3.2.0";
+const CACHE_VERSION = "v3.2.1";
 const CACHE_NAME = `qr-doorbell-${CACHE_VERSION}`;
-const OFFLINE_URL = "/offline.html";
+const OFFLINE_URL = "offline.html";
 
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/owner.html",
+  "./",
+  "index.html",
+  "owner.html",
   OFFLINE_URL,
-  "/config.js",
-  "/manifest.json",
-  "/css/main.css",
-  "/css/components.css",
-  "/js/utils.js",
-  "/js/i18n.js",
-  "/js/crypto.js",
-  "/js/guest.js",
-  "/js/auth.js",
-  "/js/app.js",
-  "/js/owner-bootstrap.js",
-  "/icons/icon-192x192.png",
-  "/icons/icon-512x512.png",
-  "/icons/icon-maskable-192x192.png",
-  "/icons/icon-maskable-512x512.png",
-  "/favicon.ico"
+  "config.js",
+  "manifest.json",
+  "css/main.css",
+  "css/components.css",
+  "js/utils.js",
+  "js/i18n.js",
+  "js/crypto.js",
+  "js/guest.js",
+  "js/auth.js",
+  "js/app.js",
+  "js/owner-bootstrap.js",
+  "icons/icon-192x192.png",
+  "icons/icon-512x512.png",
+  "icons/icon-maskable-192x192.png",
+  "icons/icon-maskable-512x512.png",
+  "favicon.ico"
 ];
 
 const CDN_PREFIXES = [
@@ -148,15 +148,15 @@ self.addEventListener("push", (event) => {
   const title = data.title || "QR Doorbell";
   const options = {
     body: data.body || "New visitor at your door",
-    icon: "/icons/icon-192x192.png",
-    badge: "/icons/icon-maskable-192x192.png",
+    icon: "icons/icon-192x192.png",
+    badge: "icons/icon-maskable-192x192.png",
     tag: data.tag || "doorbell-ring",
     renotify: true,
     actions: [
       { action: "view", title: "View" },
       { action: "dismiss", title: "Dismiss" }
     ],
-    data: { url: data.url || "/owner.html" }
+    data: { url: data.url || "owner.html" }
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -165,6 +165,6 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "view" || !event.action) {
-    event.waitUntil(clients.openWindow(event.notification.data.url || "/owner.html"));
+    event.waitUntil(clients.openWindow(event.notification.data.url || "owner.html"));
   }
 });
