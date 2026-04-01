@@ -1,39 +1,39 @@
 {
-          "name": "Doorbell",
-          "short_name": "Doorbell",
-          "description": "Contactless QR-based doorbell system. Secure, private, and instant text notifications for your home or office.",
-          "icons": [
-                      {
-                                    "src": "icons/icon-192x192.svg",
-                                    "type": "image/svg+xml",
-                                    "sizes": "192x192",
-                                    "purpose": "any"
-                      },
-                      {
-                                    "src": "icons/icon-512x512.svg",
-                                    "type": "image/svg+xml",
-                                    "sizes": "512x512",
-                                    "purpose": "any"
-                      }
-          ],
-          "start_url": "index.html",
-          "display": "standalone",
-          "background_color": "#000000",
-          "theme_color": "#000000",
-          "screenshots": [
-                      {
-                                    "src": "icons/screenshot-1.png",
-                                    "type": "image/jpeg",
-                                    "sizes": "1080x1920",
-                                    "form_factor": "narrow",
-                                    "label": "Guest view"
-                      },
-                      {
-                                    "src": "icons/screenshot-2.png",
-                                    "type": "image/jpeg",
-                                    "sizes": "1080x1920",
-                                    "form_factor": "wide",
-                                    "label": "Owner view"
-                      }
-          ]
+            "name": "Doorbell",
+            "short_name": "Doorbell",
+            "description": "Contactless QR-based doorbell system. Secure, private, and instant text notifications for your home or office.",
+            "icons": [
+                          {
+                                          "src": "https://s10.aconvert.com/convert/p3r68-cdx67/a81ze-bq1el.png",
+                                          "type": "image/png",
+                                          "sizes": "192x192",
+                                          "purpose": "any"
+                          },
+                          {
+                                          "src": "https://s10.aconvert.com/convert/p3r68-cdx67/aydcc-n632w.png",
+                                          "type": "image/png",
+                                          "sizes": "512x512",
+                                          "purpose": "any"
+                          }
+            ],
+            "start_url": "index.html",
+            "display": "standalone",
+            "background_color": "#000000",
+            "theme_color": "#000000",
+            "screenshots": [
+                          {
+                                          "src": "icons/screenshot-1.png",
+                                          "type": "image/jpeg",
+                                          "sizes": "1080x1920",
+                                          "form_factor": "narrow",
+                                          "label": "Guest view"
+                          },
+                          {
+                                          "src": "icons/screenshot-2.png",
+                                          "type": "image/jpeg",
+                                          "sizes": "1080x1920",
+                                          "form_factor": "wide",
+                                          "label": "Owner view"
+                          }
+            ]
 }
