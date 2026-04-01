@@ -11,9 +11,6 @@
 
   var ringBtn = document.getElementById("ring-btn");
   var messageInput = document.getElementById("message");
-  var confirmationScreen = document.getElementById("confirmation-screen");
-  var errorState = document.getElementById("error-state");
-  var errorMessage = document.getElementById("error-message");
   var replyDrawer = document.getElementById("reply-drawer");
   var replyText = document.getElementById("reply-text");
   var offlineIndicator = document.getElementById("offline-indicator");
@@ -21,6 +18,11 @@
   var charCounter = document.getElementById("char-counter");
   var scamWarning = document.getElementById("scam-warning");
   var encryptionIndicator = document.getElementById("encryption-indicator");
+  
+  var actionBar = document.getElementById("action-bar");
+  var inlineError = document.getElementById("inline-error");
+  var inlineErrorText = document.getElementById("error-text");
+  var inlineSuccess = document.getElementById("inline-success");
 
   var ringSent = false;
   var lastRingTime = 0;
@@ -45,8 +47,9 @@
   }
 
   function setInvalidQrState(message) {
-    errorMessage.textContent = message || "This QR code is not active.";
-    errorState.classList.add("visible");
+    if (inlineErrorText) inlineErrorText.textContent = message || "Missing QR token";
+    if (actionBar) actionBar.style.display = "none";
+    if (inlineError) inlineError.classList.add("visible");
     ringBtn.disabled = true;
   }
 
@@ -200,8 +203,8 @@
       if (ringContainer) ringContainer.classList.remove("is-ringing");
       playGuestChime();
       
-      confirmationScreen.classList.add("visible");
-      document.getElementById("main-form").style.display = "none";
+      if (actionBar) actionBar.style.display = "none";
+      if (inlineSuccess) inlineSuccess.classList.add("visible");
       Utils.vibrate([50, 50, 100]);
 
       supabaseClient
@@ -230,8 +233,7 @@
       hideLoading();
       if (ringContainer) ringContainer.classList.remove("is-ringing");
       console.error("Ring error:", err);
-      errorMessage.textContent = err.message || I18n.t("error_generic");
-      errorState.classList.add("visible");
+      setInvalidQrState(err.message || I18n.t("error_generic"));
       ringSent = false;
       ringBtn.disabled = false;
     }
@@ -241,7 +243,6 @@
   var toggleBtn = document.getElementById("message-toggle-btn");
   var drawer = document.getElementById("message-drawer");
   var ringBtnText = document.getElementById("ring-btn-text");
-  var ringBtnIcon = document.getElementById("ring-btn-icon");
 
   if (toggleBtn && drawer) {
     toggleBtn.addEventListener("click", function() {
@@ -252,10 +253,8 @@
       
       if (!isVisible) {
         ringBtnText.setAttribute("data-i18n", "send_button");
-        ringBtnIcon.textContent = "📨";
       } else {
         ringBtnText.setAttribute("data-i18n", "ring_button");
-        ringBtnIcon.textContent = "🔔";
       }
       I18n.apply();
       Utils.vibrate([10]);
@@ -278,10 +277,13 @@
     } catch (_e) {}
   }
 
-  document.querySelector('[data-action="retry-capture"]').addEventListener("click", function() {
-    errorState.classList.remove("visible");
-    ringSent = false;
-    ringBtn.disabled = false;
+  document.querySelectorAll('[data-action="retry-capture"]').forEach(function(el) {
+    el.addEventListener("click", function() {
+      if (inlineError) inlineError.classList.remove("visible");
+      if (actionBar) actionBar.style.display = "flex";
+      ringSent = false;
+      ringBtn.disabled = false;
+    });
   });
 
   // Instruction Modal Logic

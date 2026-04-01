@@ -7,13 +7,6 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="description" content="Smart QR Doorbell - Contactless visitor check-in system">
     <meta name="theme-color" content="#f59e0b">
-    <meta property="og:title" content="QR Doorbell">
-    <meta property="og:description" content="Smart QR-based doorbell system">
-    <meta property="og:type" content="website">
-    <meta name="twitter:card" content="summary">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="QR Doorbell">
     <title>QR Doorbell - Guest</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -24,55 +17,47 @@
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <style>
-        .guest-container{width:92%;max-width:440px;text-align:center;padding:3rem 2rem;border-radius:3.5rem;background:var(--glass);backdrop-filter:blur(50px);border:1px solid var(--glass-border);box-shadow:0 40px 120px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.05);animation:appAppear 1.2s cubic-bezier(0.16,1,0.3,1);position:relative}
+        .guest-container{width:92%;max-width:440px;text-align:center;padding:3.5rem 2.2rem;border-radius:3.5rem;background:var(--glass);backdrop-filter:blur(60px);border:1px solid var(--glass-border);box-shadow:var(--shadow-lg),inset 0 1px 0 rgba(255,255,255,0.05);animation:appAppear 1.2s cubic-bezier(0.16,1,0.3,1);position:relative;z-index:10}
         @keyframes appAppear{0%{opacity:0;transform:scale(0.95) translateY(50px)}100%{opacity:1;transform:scale(1) translateY(0)}}
-        .guest-logo{font-family:var(--font-heading);font-size:3rem;margin-bottom:0.2rem;letter-spacing:-3px;font-weight:800;color:#fff;text-shadow:0 0 20px rgba(245,158,11,0.2)}
-        .location-badge{display:inline-block;padding:0.65rem 1.4rem;background:rgba(245,158,11,0.05);border-radius:3rem;color:var(--accent);font-size:0.8rem;font-weight:700;margin-bottom:2.5rem;border:1px solid rgba(245,158,11,0.1);text-transform:uppercase;letter-spacing:2px}
-        .status-text{margin-top:1.5rem;font-size:0.85rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:1px}
-        .reply-drawer{margin-top:2rem;padding:2rem;border-radius:2.5rem;background:rgba(245,158,11,0.03);border:1px solid var(--accent);display:none;animation:drawerSlide 0.7s cubic-bezier(0.34,1.56,0.64,1)}
-        @keyframes drawerSlide{0%{opacity:0;transform:translateY(50px) scale(0.9)}100%{opacity:1;transform:translateY(0) scale(1)}}
-        .reply-header{font-size:0.7rem;text-transform:uppercase;letter-spacing:3px;color:var(--accent);margin-bottom:0.8rem}
-        .reply-message{font-family:var(--font-heading);font-size:1.6rem;font-weight:800;color:#fff}
-        .lang-toggle-wrapper{position:absolute;top:1rem;right:1rem;z-index:10}
-        .lang-toggle{display:flex;background:var(--glass);border:1px solid var(--glass-border);border-radius:0.75rem;overflow:hidden}
-        .lang-btn{padding:0.4rem 0.8rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-weight:600;font-size:0.8rem;transition:all 0.15s ease}
-        .lang-btn.active{background:var(--accent);color:var(--text-inverse)}
-        .timestamp-display{font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem}
-        .error-state{display:none;padding:2rem;text-align:center}
-        .error-state.visible{display:block}
-        .error-state .error-icon{font-size:3rem;margin-bottom:1rem}
-        .error-state .error-message{color:var(--text-secondary);margin-bottom:1.5rem}
-        .offline-indicator{display:none;padding:0.75rem 1rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:1rem;color:var(--error);font-size:0.85rem;margin-bottom:1.5rem;text-align:center}
+        .guest-logo{font-family:var(--font-heading);font-size:3.2rem;margin-bottom:1rem;letter-spacing:-3px;font-weight:800;color:#fff;text-shadow:0 0 20px rgba(245,158,11,0.2)}
+        .location-badge{display:inline-block;padding:0.65rem 1.4rem;background:rgba(245,158,11,0.05);border-radius:3rem;color:var(--accent);font-size:0.8rem;font-weight:700;margin-bottom:3.5rem;border:1px solid rgba(245,158,11,0.1);text-transform:uppercase;letter-spacing:2px}
+        @media(max-width:480px){.guest-container{padding:2.5rem 1.5rem;border-radius:2.5rem}.guest-logo{font-size:2.8rem;margin-bottom:0.75rem}.location-badge{margin-bottom:2.5rem}}
+        @media(min-width:768px){.guest-container{max-width:460px;padding:4.5rem 3.5rem}}
+
+        .offline-indicator{position:fixed;top:0;left:0;right:0;padding:1rem;background:rgba(239,68,68,0.9);backdrop-filter:blur(10px);color:#fff;font-size:0.85rem;font-weight:700;text-align:center;z-index:5000;display:none;animation:slideDownFast 0.3s ease}
         .offline-indicator.visible{display:block}
-        .confirmation-screen{display:none;text-align:center;padding:2rem 0}
-        .confirmation-screen.visible{display:block}
-        .confirmation-icon{font-size:4rem;color:var(--success);margin-bottom:1rem}
-        .confirmation-text{font-family:var(--font-heading);font-size:1.4rem;font-weight:700;color:var(--text-primary);margin-bottom:0.5rem}
-        .confirmation-sub{color:var(--text-muted);font-size:0.9rem}
-        .encryption-badge{display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.8rem;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:2rem;font-size:0.7rem;color:var(--success);font-weight:600;margin-bottom:1.5rem}
-        .encryption-badge .lock-icon{font-size:0.9rem}
-        .char-counter{font-size:0.7rem;color:var(--text-muted);text-align:right;margin-top:0.3rem}
-        .char-counter.warning{color:var(--warning)}
-        .char-counter.error{color:var(--error)}
-        .scam-warning{display:none;padding:0.75rem 1rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:1rem;color:var(--warning);font-size:0.8rem;margin-top:0.5rem;text-align:left}
-        .scam-warning.visible{display:block}
-        .message-bubble{background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:1.5rem;padding:1.2rem;margin-top:1rem;text-align:left}
-        .message-bubble-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--text-muted);margin-bottom:0.5rem}
-        .message-bubble-text{font-size:0.95rem;color:var(--text-secondary);line-height:1.5}
-        @media(max-width:480px){.guest-container{padding:2rem 1.5rem;border-radius:2.5rem}.guest-logo{font-size:2.4rem}}
-        @media(min-width:768px){.guest-container{max-width:500px;padding:4rem 3rem}}
-        
-        .info-container {
-            margin-top: 1.5rem;
+        @keyframes slideDownFast{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+
+        .status-cluster {
             display: flex;
+            align-items: center;
             justify-content: center;
+            gap: 0.6rem;
+            margin-bottom: 2rem;
+            line-height: normal;
         }
-        .info-btn {
+        .encryption-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.2rem;
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.25);
+            border-radius: 3rem;
+            font-size: 0.8rem;
+            color: var(--success);
+            font-weight: 800;
+            height: 40px;
+            box-sizing: border-box;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .info-btn-sm {
             background: none;
             border: 1px solid var(--glass-border);
             color: var(--text-muted);
-            width: 32px;
-            height: 32px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
@@ -80,71 +65,79 @@
             justify-content: center;
             font-size: 1.2rem;
             transition: all 0.3s ease;
-        }
-        .info-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-            transform: scale(1.1);
-        }
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: var(--z-modal);
-            padding: 2rem;
-        }
-        .modal-overlay.visible {
-            display: flex;
-        }
-        .modal-content {
-            padding: 2.5rem;
-            text-align: center;
-            max-width: 400px;
-        }
-        .modal-content h2 { margin-bottom: 1rem; color: var(--accent); }
-        .modal-content p { margin-bottom: 2rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
-        
-        /* Layout Fixes */
-        .status-cluster {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .info-btn-sm {
-            background: none;
-            border: 1px solid var(--glass-border);
-            color: var(--text-muted);
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            box-sizing: border-box;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
         }
         .info-btn-sm:hover { color: var(--accent); border-color: var(--accent); transform: scale(1.1); }
         
+        .action-area {
+            position: relative;
+            min-height: 64px;
+            margin-top: 2rem;
+        }
         .action-bar {
             display: flex;
             gap: 1rem;
             width: 100%;
             align-items: stretch;
             justify-content: center;
-            margin-top: 1.5rem;
         }
-        .btn-icon-sq { width: 64px; height: 64px; padding: 0 !important; font-size: 1.8rem !important; flex-shrink: 0; box-shadow: var(--shadow-sm); border-radius: 1.5rem !important; display: flex; align-items: center; justify-content: center; }
-        .btn-main-action { flex-grow: 1; height: 64px; border-radius: 1.5rem !important; font-size: 1.2rem !important; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 0.6rem; box-shadow: 0 10px 40px rgba(245,158,11,0.2); }
+        .btn-icon-sq { 
+            width: 64px; 
+            height: 64px; 
+            padding: 0 !important; 
+            font-size: 1.8rem !important; 
+            flex-shrink: 0; 
+            box-shadow: var(--shadow-sm); 
+            border-radius: 1.5rem !important; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            line-height: 1; 
+        }
+        .btn-main-action { 
+            flex-grow: 1; 
+            height: 64px; 
+            border-radius: 1.5rem !important; 
+            font-size: 1.25rem !important; 
+            font-weight: 800; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 0.6rem; 
+            box-shadow: 0 10px 40px rgba(245,158,11,0.2); 
+        }
+        
+        .inline-state {
+            display: none;
+            width: 100%;
+            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .inline-state.visible {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+        .inline-status-msg {
+            flex-grow: 1;
+            height: 64px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 1rem;
+            padding: 0 1rem;
+        }
+        .inline-status-msg.error { border-color: var(--error); color: var(--error); }
+        .inline-status-msg.success { border-color: var(--success); color: var(--success); }
+        .btn-retry { width: 64px; height: 64px; padding: 0 !important; font-size: 1.5rem !important; border-radius: 1.5rem !important; min-width: 64px; }
         
         .message-content {
             display: none;
@@ -158,7 +151,6 @@
         .message-content.visible { display: block; border-color: var(--accent); }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); scale: 0.98; } to { opacity: 1; transform: translateY(0); scale: 1; } }
         
-        /* Premium Reply Card */
         .reply-card {
             margin-top: 2rem;
             padding: 1.5rem;
@@ -169,6 +161,7 @@
             animation: drawerSlide 0.7s cubic-bezier(0.34,1.56,0.64,1);
             box-shadow: 0 0 30px rgba(245,158,11,0.1);
         }
+        @keyframes drawerSlide{0%{opacity:0;transform:translateY(50px) scale(0.9)}100%{opacity:1;transform:translateY(0) scale(1)}}
         .reply-card-header {
             display: flex;
             align-items: center;
@@ -196,58 +189,24 @@
         }
         @keyframes dotUpdate { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.2); } }
         
-        .message-dropdown-container {
-            margin-bottom: 2rem;
-            text-align: left;
-        }
-        .message-toggle {
-            background: none;
-            border: 1px solid var(--glass-border);
-            color: var(--text-muted);
-            padding: 0.6rem 1rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            cursor: pointer;
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            display: flex;
-            justify-content: space-between;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            display: none;
             align-items: center;
-            transition: all 0.3s ease;
+            justify-content: center;
+            z-index: 1000;
+            padding: 2rem;
         }
-        .message-toggle:hover {
-            border-color: var(--accent);
-            color: var(--text-primary);
-        }
-        .message-toggle.active {
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
-            border-color: var(--accent);
-            color: var(--text-primary);
-        }
-        .message-content {
-            display: none;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--accent);
-            border-top: none;
-            border-bottom-left-radius: 1.5rem;
-            border-bottom-right-radius: 1.5rem;
-            animation: slideDown 0.3s ease forwards;
-        }
-        .message-content.visible {
-            display: block;
-        }
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .ring-btn-container {
-            position: relative;
-            margin-bottom: 2rem;
-        }
-        .ring-pulse {
-            display: none;
-        }
+        .modal-overlay.visible { display: flex; }
+        .modal-content { padding: 2.5rem; text-align: center; max-width: 400px; }
+        .modal-content h2 { margin-bottom: 1rem; color: var(--accent); }
+        .modal-content p { margin-bottom: 2rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
     </style>
 </head>
 <body>
@@ -276,29 +235,36 @@
                 </div>
             </div>
             
-            <div class="action-bar">
-                <button class="btn btn-secondary btn-icon-sq interactive" id="message-toggle-btn" aria-label="Add note">＋</button>
-                <div class="ring-btn-container" id="ring-container">
-                    <div class="ring-pulse"></div>
-                    <button id="ring-btn" class="btn btn-primary btn-main-action interactive" data-action="send-ring" aria-label="Send doorbell ring">
-                        <span id="ring-btn-text" data-i18n="ring_button">Ring</span>
-                        <span id="ring-btn-icon">🔔</span>
-                    </button>
+            <div class="action-area">
+                <div class="action-bar" id="action-bar">
+                    <button class="btn btn-secondary btn-icon-sq interactive" id="message-toggle-btn" aria-label="Add note">＋</button>
+                    <div class="ring-btn-container" id="ring-container">
+                        <div class="ring-pulse"></div>
+                        <button id="ring-btn" class="btn btn-primary btn-main-action interactive" data-action="send-ring" aria-label="Send doorbell ring">
+                            <span id="ring-btn-text" data-i18n="ring_button">Ring</span>
+                            <span id="ring-btn-icon" style="display:none;">🔔</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Inline States -->
+                <div id="inline-error" class="inline-state">
+                    <div class="inline-status-msg error">
+                        <span aria-hidden="true">&#9888;</span>&nbsp;<span id="error-text">Missing QR token</span>
+                    </div>
+                    <button class="btn btn-secondary btn-retry interactive" data-action="retry-capture" aria-label="Retry">&#8635;</button>
+                </div>
+
+                <div id="inline-success" class="inline-state">
+                    <div class="inline-status-msg success">
+                        <span aria-hidden="true">&#9989;</span>&nbsp;<span data-i18n="ring_button_sent">Signal Sent!</span>
+                    </div>
                 </div>
             </div>
             
             <div id="timestamp-display" class="timestamp-display"></div>
         </div>
-        <div id="confirmation-screen" class="confirmation-screen">
-            <div class="confirmation-icon" aria-hidden="true">&#9989;</div>
-            <div class="confirmation-text" data-i18n="ring_button_sent">Signal Sent!</div>
-            <div class="confirmation-sub" data-i18n="status_sent">Signal Received by Center</div>
-        </div>
-        <div id="error-state" class="error-state">
-            <div class="error-icon" aria-hidden="true">&#9888;&#65039;</div>
-            <div class="error-message" id="error-message"></div>
-            <button class="btn btn-secondary interactive" data-action="retry-capture" aria-label="Retry"><span data-i18n="retry">Retry</span></button>
-        </div>
+        
         <div id="reply-drawer" class="reply-card">
             <div class="reply-card-header">
                 <span class="pulse-dot"></span>
@@ -308,7 +274,6 @@
         </div>
     </div>
 
-    <!-- Instruction Modal -->
     <div id="instruction-modal" class="modal-overlay">
         <div class="modal-content glass-card animate-scale-in">
             <h2 data-i18n="how_it_works">How it works</h2>
