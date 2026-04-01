@@ -240,12 +240,25 @@
   // Dropdown Toggle Logic
   var toggleBtn = document.getElementById("message-toggle-btn");
   var drawer = document.getElementById("message-drawer");
+  var ringBtnText = document.getElementById("ring-btn-text");
+  var ringBtnIcon = document.getElementById("ring-btn-icon");
+
   if (toggleBtn && drawer) {
     toggleBtn.addEventListener("click", function() {
       var isVisible = drawer.classList.contains("visible");
       drawer.classList.toggle("visible", !isVisible);
       toggleBtn.classList.toggle("active", !isVisible);
-      toggleBtn.querySelector(".toggle-icon").textContent = isVisible ? "＋" : "－";
+      toggleBtn.textContent = isVisible ? "＋" : "×";
+      
+      if (!isVisible) {
+        ringBtnText.setAttribute("data-i18n", "send_button");
+        ringBtnIcon.textContent = "📨";
+      } else {
+        ringBtnText.setAttribute("data-i18n", "ring_button");
+        ringBtnIcon.textContent = "🔔";
+      }
+      I18n.apply();
+      Utils.vibrate([10]);
     });
   }
 

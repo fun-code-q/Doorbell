@@ -111,6 +111,40 @@
         .modal-content h2 { margin-bottom: 1rem; color: var(--accent); }
         .modal-content p { margin-bottom: 2rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
         
+        /* Layout Fixes */
+        .status-cluster {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .info-btn-sm {
+            background: none;
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+        .info-btn-sm:hover { color: var(--accent); border-color: var(--accent); }
+        
+        .action-bar {
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-icon { width: 56px; height: 56px; padding: 0 !important; font-size: 1.5rem !important; }
+        .btn-grow { flex-grow: 1; min-height: 56px; }
+        
         /* Premium Reply Card */
         .reply-card {
             margin-top: 2rem;
@@ -208,44 +242,38 @@
     <div class="offline-indicator" id="offline-indicator" role="alert">
         <span data-i18n="offline_message">You are offline. Ring will be sent when connected.</span>
     </div>
-    <div class="lang-toggle-wrapper">
-        <div class="lang-toggle interactive" role="group" aria-label="Language selection">
-            <button class="lang-btn active interactive" id="lang-en" data-action="set-lang-en" aria-label="English">EN</button>
-            <button class="lang-btn interactive" id="lang-de" data-action="set-lang-de" aria-label="Deutsch">DE</button>
-        </div>
-    </div>
     <div class="guest-container" role="main">
         <div class="guest-logo">QR DoorBell</div>
         <div id="main-form">
+            <div class="status-cluster">
+                <div id="encryption-indicator" class="encryption-badge" style="display:none;">
+                    <span class="lock-icon" aria-hidden="true">&#128274;</span>
+                    <span data-i18n="encrypted">Secure</span>
+                </div>
+                <button class="info-btn-sm interactive" id="info-modal-trigger" aria-label="Instructions">ⓘ</button>
+            </div>
+
             <div class="message-dropdown-container">
-                <button class="message-toggle interactive" id="message-toggle-btn">
-                    <span data-i18n="add_note">Add a Note?</span>
-                    <span class="toggle-icon">＋</span>
-                </button>
                 <div class="message-content interactive" id="message-drawer">
                     <textarea id="message" class="form-textarea interactive" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500" aria-label="Visitor message"></textarea>
                     <div class="char-counter" id="char-counter">0 / 500</div>
                     <div class="scam-warning" id="scam-warning" role="alert">
-                        <span aria-hidden="true">&#9888;</span> Links/URLs not allowed.
+                        <span>&#9888;</span> Security Rule: No links.
                     </div>
                 </div>
             </div>
             
-            <div id="encryption-indicator" class="encryption-badge" style="display:none;">
-                <span class="lock-icon" aria-hidden="true">&#128274;</span>
-                <span>End-to-end encrypted</span>
+            <div class="action-bar">
+                <button class="btn btn-secondary btn-icon interactive" id="message-toggle-btn" aria-label="Add note">＋</button>
+                <div class="ring-btn-container" id="ring-container">
+                    <div class="ring-pulse"></div>
+                    <button id="ring-btn" class="btn btn-primary btn-grow interactive" data-action="send-ring" aria-label="Send doorbell ring">
+                        <span id="ring-btn-text" data-i18n="ring_button">Ring Bell</span>
+                        <span id="ring-btn-icon">🔔</span>
+                    </button>
+                </div>
             </div>
             
-            <div class="ring-btn-container" id="ring-container">
-                <div class="ring-pulse"></div>
-                <button id="ring-btn" class="btn btn-primary btn-full btn-lg interactive" data-action="send-ring" aria-label="Send doorbell ring">
-                    <span data-i18n="ring_button">Ring Bell</span>
-                </button>
-            </div>
-            
-            <div class="info-container">
-                <button class="info-btn interactive" id="info-modal-trigger" aria-label="Instructions">ⓘ</button>
-            </div>
             <div id="timestamp-display" class="timestamp-display"></div>
         </div>
         <div id="confirmation-screen" class="confirmation-screen">

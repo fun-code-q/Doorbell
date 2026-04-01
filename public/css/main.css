@@ -73,12 +73,34 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100dvh;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   position: fixed;
   width: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  touch-action: none; /* Lockdown mode */
+  touch-action: none;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80vw;
+  height: 80vw;
+  max-width: 400px;
+  max-height: 400px;
+  background: url('../icons/icon-512x512.png') no-repeat center center;
+  background-size: contain;
+  opacity: 0.04;
+  z-index: -1;
+  pointer-events: none;
+  filter: grayscale(100%) brightness(200%);
 }
 
 .interactive {

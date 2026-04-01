@@ -10,11 +10,11 @@ const I18n = {
     en: {
       app_name: "QR Doorbell",
       guest_title: "Smart QR Doorbell",
-      ring_button: "Send",
+      ring_button: "Ring",
       ring_button_sending: "Transmitting...",
       ring_button_sent: "Signal Sent!",
-      status_standby: "", // Handled by info icon now
-      how_it_works: "How it works",
+      send_button: "Send",
+      encrypted: "Secure",
       instruction_desc: "Your secure signal is end-to-end encrypted and sent directly to the owner. Please wait for a reply on this screen.",
       status_camera_error: "Camera access required",
       status_permission_denied: "Camera permission denied",
@@ -149,11 +149,11 @@ const I18n = {
     de: {
       app_name: "QR Türklingel",
       guest_title: "Smarte QR Türklingel",
-      ring_button: "Senden",
+      ring_button: "Klingeln",
       ring_button_sending: "Senden...",
       ring_button_sent: "Signal gesendet!",
-      status_standby: "", // Handled by info icon now
-      how_it_works: "So funktioniert es",
+      send_button: "Senden",
+      encrypted: "Sicher",
       instruction_desc: "Ihr Signal ist Ende-zu-Ende verschlüsselt. Bitte warten Sie auf dieser Seite auf eine Antwort des Eigentümers.",
       status_camera_error: "Kamerazugriff erforderlich",
       status_permission_denied: "Kamera-Erlaubnis verweigert",
