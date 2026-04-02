@@ -1,3 +1,4 @@
+/* global MutationObserver */
 /* ============================================================
    QR Doorbell - Internationalization (i18n)
    ============================================================ */
@@ -15,6 +16,7 @@ const I18n = {
       ring_button_sent: "Signal Sent!",
       send_button: "Send",
       encrypted: "Secure",
+      how_it_works: "How it works",
       instruction_desc: "Your secure signal is end-to-end encrypted and sent directly to the owner. Please wait for a reply on this screen.",
       status_camera_error: "Camera access required",
       status_permission_denied: "Camera permission denied",
@@ -51,6 +53,12 @@ const I18n = {
       owner_signin_error: "Invalid email or password",
       owner_signin_loading: "Signing in...",
       sign_in: "Sign In",
+      sign_up: "Create Vault",
+      owner_signup_subtitle: "Create your secure vault",
+      no_account: "Don't have an account?",
+      create_one: "Create one",
+      have_account: "Already have an account?",
+      master_pin_placeholder: "Used to lock your messages",
       sign_out: "Sign Out",
       dashboard: "Dashboard",
       activity_log: "Activity Log",
@@ -60,6 +68,9 @@ const I18n = {
       qr_placeholder: "Point Identifier (e.g. Penthouse)",
       point_identifier: "Point Identifier (e.g. Penthouse)",
       settings: "Settings",
+      security: "Security",
+      master_pin: "Master Security PIN",
+      master_pin_hint: "Your private key. Only YOU will know it.",
       analytics: "Analytics",
       rings_today: "Rings Today",
       rings_this_week: "Rings This Week",
@@ -80,6 +91,7 @@ const I18n = {
       waiting: "Waiting",
       responded: "Responded",
       export_csv: "Export CSV",
+      mark_all_read: "Mark All Read",
       delete: "Delete",
       delete_confirm: "Are you sure you want to delete this ring?",
       deleted: "Deleted successfully",
@@ -154,6 +166,7 @@ const I18n = {
       ring_button_sent: "Signal gesendet!",
       send_button: "Senden",
       encrypted: "Sicher",
+      how_it_works: "So funktioniert es",
       instruction_desc: "Ihr Signal ist Ende-zu-Ende verschlüsselt. Bitte warten Sie auf dieser Seite auf eine Antwort des Eigentümers.",
       status_camera_error: "Kamerazugriff erforderlich",
       status_permission_denied: "Kamera-Erlaubnis verweigert",
@@ -190,6 +203,12 @@ const I18n = {
       owner_signin_error: "Ungültige E-Mail oder Passwort",
       owner_signin_loading: "Anmeldung...",
       sign_in: "Anmelden",
+      sign_up: "Vault Erstellen",
+      owner_signup_subtitle: "Erstellen Sie Ihren sicheren Vault",
+      no_account: "Noch kein Konto?",
+      create_one: "Konto erstellen",
+      have_account: "Bereits ein Konto?",
+      master_pin_placeholder: "Verschlüsselt Ihre Nachrichten",
       sign_out: "Abmelden",
       dashboard: "Dashboard",
       activity_log: "Aktivitätsprotokoll",
@@ -199,6 +218,9 @@ const I18n = {
       qr_placeholder: "Punkt-Name (z.B. Penthouse)",
       point_identifier: "Punkt-Name (z.B. Penthouse)",
       settings: "Einstellungen",
+      security: "Sicherheit",
+      master_pin: "Master-Sicherheit-PIN",
+      master_pin_hint: "Ihr privater Schlüssel. Nur SIE kennen ihn.",
       analytics: "Analytik",
       rings_today: "Klingel Heute",
       rings_this_week: "Klingel Diese Woche",
@@ -219,6 +241,7 @@ const I18n = {
       waiting: "Wartend",
       responded: "Beantwortet",
       export_csv: "CSV Exportieren",
+      mark_all_read: "Alle als gelesen",
       delete: "Löschen",
       delete_confirm: "Möchten Sie diese Klingel wirklich löschen?",
       deleted: "Erfolgreich gelöscht",
@@ -298,6 +321,14 @@ const I18n = {
     this.currentLang = saved;
     Utils.setLanguage(saved);
     this.apply();
+    this.setupObserver();
+  },
+
+  setupObserver: function() {
+    if (this.observer) return;
+    var self = this;
+    this.observer = new MutationObserver(function() { self.apply(); });
+    this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-i18n", "data-i18n-placeholder"] });
   },
 
   t: function(key, params) {

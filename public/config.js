@@ -49,7 +49,7 @@
       darkMode: true,
       offlineMode: true,
       encryption: true,
-      enableImages: false          /* Enable client-side encryption for messages and images */
+      enableImages: true          /* Enable client-side encryption for messages and images */
     },
 
     /* Environment Detection */

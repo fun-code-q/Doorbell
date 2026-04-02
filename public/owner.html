@@ -74,18 +74,41 @@
     <div class="auth-overlay" id="auth-overlay">
         <div class="auth-card">
             <div class="auth-title">QR VAULT</div>
-            <p class="auth-subtitle" data-i18n="owner_signin_subtitle">Sign in to manage your doorbell</p>
-            <form id="login-form" class="auth-form">
-                <div class="form-group">
-                    <label class="form-label" for="login-email" data-i18n="email">Email</label>
-                    <input type="email" id="login-email" class="form-input" required autocomplete="email" aria-label="Email address">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="login-password" data-i18n="password">Password</label>
-                    <input type="password" id="login-password" class="form-input" required autocomplete="current-password" aria-label="Password">
-                </div>
-                <button type="submit" class="btn btn-primary btn-full" data-i18n="sign_in">Sign In</button>
-            </form>
+            <div id="login-view">
+                <p class="auth-subtitle" data-i18n="owner_signin_subtitle">Sign in to manage your doorbell</p>
+                <form id="login-form" class="auth-form">
+                    <div class="form-group">
+                        <label class="form-label" for="login-email" data-i18n="email">Email</label>
+                        <input type="email" id="login-email" class="form-input" required autocomplete="email" aria-label="Email address">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="login-password" data-i18n="password">Password</label>
+                        <input type="password" id="login-password" class="form-input" required autocomplete="current-password" aria-label="Password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" data-i18n="sign_in">Sign In</button>
+                    <p class="text-center" style="margin-top:1.5rem;font-size:0.85rem;color:var(--text-muted)">
+                        <span data-i18n="no_account">Don't have an account?</span> <a href="#" id="go-to-signup" style="color:var(--accent);font-weight:700;text-decoration:none" data-i18n="create_one">Create one</a>
+                    </p>
+                </form>
+            </div>
+
+            <div id="signup-view" style="display:none;">
+                <p class="auth-subtitle" data-i18n="owner_signup_subtitle">Create your secure vault</p>
+                <form id="signup-form" class="auth-form">
+                    <div class="form-group">
+                        <label class="form-label" for="signup-email" data-i18n="email">Email</label>
+                        <input type="email" id="signup-email" class="form-input" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="signup-password" data-i18n="password">Password</label>
+                        <input type="password" id="signup-password" class="form-input" required autocomplete="new-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" data-i18n="sign_up">Create Vault</button>
+                    <p class="text-center" style="margin-top:1.5rem;font-size:0.85rem;color:var(--text-muted)">
+                        <span data-i18n="have_account">Already have an account?</span> <a href="#" id="go-to-login" style="color:var(--accent);font-weight:700;text-decoration:none" data-i18n="sign_in">Sign In</a>
+                    </p>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -140,6 +163,7 @@
             <div class="section-header">
                 <span data-i18n="activity_log">Activity Log</span>
                 <div style="display:flex;gap:0.5rem">
+                    <button class="btn btn-secondary btn-sm" data-action="mark-all-read" data-i18n="mark_all_read">Mark All Read</button>
                     <button class="btn btn-secondary btn-sm" data-action="export-csv" data-i18n="export_csv">Export CSV</button>
                 </div>
             </div>
@@ -150,6 +174,9 @@
                     <option value="all" data-i18n="all">All</option>
                     <option value="waiting" data-i18n="waiting">Waiting</option>
                     <option value="responded" data-i18n="responded">Responded</option>
+                </select>
+                <select id="filter-door" aria-label="Filter rings by door">
+                    <option value="all">All Doors</option>
                 </select>
             </div>
             <div id="flood-warning" class="flood-warning" style="display:none;" role="alert">
@@ -225,14 +252,11 @@
                         </div>
                         <label class="toggle"><input type="checkbox" id="setting-push" checked><span class="toggle-slider"></span></label>
                     </div>
-                </div>
-                <div class="settings-section">
-                    <div class="settings-section-title" data-i18n="language">Preferences</div>
                     <div class="settings-item">
                         <div>
                             <div class="settings-item-label" data-i18n="language">Language</div>
                         </div>
-                        <select id="setting-language" class="form-input" style="width:auto;padding:0.5rem 1rem">
+                        <select id="setting-language" class="form-input" style="min-width:120px">
                             <option value="en">English</option>
                             <option value="de">Deutsch</option>
                         </select>
@@ -241,8 +265,9 @@
                         <div>
                             <div class="settings-item-label" data-i18n="auto_logout">Auto Logout (min)</div>
                         </div>
-                        <input type="number" id="setting-auto-logout" value="15" min="1" max="120" class="form-input" style="width:80px;padding:0.5rem 1rem" aria-label="Auto logout minutes">
+                        <input type="number" id="setting-auto-logout" class="form-input" min="1" max="120" value="15" style="width:96px">
                     </div>
+                </div>
                 </div>
                 <button class="btn btn-primary" data-action="save-settings" data-i18n="save">Save</button>
             </div>

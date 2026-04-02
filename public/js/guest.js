@@ -29,6 +29,9 @@
   var supabaseClient = null;
   var qrToken = Utils.getQueryParam("t");
   var resolvedDoor = null;
+  var cameraStream = null;
+  var isPhotoActive = false;
+  var capturedBlob = null;
 
   I18n.init();
 
@@ -139,11 +142,20 @@
     ringSent = true;
     lastRingTime = now;
     ringBtn.disabled = true;
-    var hideLoading = Utils.showLoading(I18n.t("loading"));
     
     // UI Feedback: Start Ringing Animation
     var ringContainer = document.getElementById("ring-container");
     if (ringContainer) ringContainer.classList.add("is-ringing");
+    const hideLoading = Utils.showLoading(I18n.t("ringing"));
+
+    // Ensure photo is captured if camera is active but no photo taken yet
+    if (isPhotoActive && cameraStream && !capturedBlob) {
+        try {
+            await capturePhoto();
+        } catch (captureErr) {
+            console.warn("Auto-capture failed:", captureErr);
+        }
+    }
     
     // Haptic Feedback for Guest
     Utils.vibrate([10, 30, 10]);
@@ -170,12 +182,41 @@
         console.warn("Unable to hash user agent fingerprint:", hashErr);
       }
 
+      var photoUrl = null;
+      var photoEncrypted = false;
+
+      if (isPhotoActive && capturedBlob) {
+        try {
+          var fileName = Utils.generateUUID() + ".jpg";
+          var uploadPath = (resolvedDoor.house_id || "public") + "/" + fileName;
+          var uploadData = capturedBlob;
+
+          if (CONFIG.FEATURE_FLAGS.encryption && Crypto.isSupported()) {
+            try {
+              uploadData = await Crypto.encryptBlob(capturedBlob, CONFIG.ENCRYPTION_PASSPHRASE);
+              photoEncrypted = true;
+            } catch (encErr) {
+              console.warn("Photo encryption failed, sending raw image:", encErr);
+            }
+          }
+
+          var { error: uploadError } = await supabaseClient.storage
+            .from("guest_photos")
+            .upload(uploadPath, uploadData);
+          
+          if (uploadError) throw uploadError;
+          photoUrl = uploadPath;
+        } catch (photoErr) {
+          console.warn("Photo upload failed, proceeding with message only:", photoErr);
+        }
+      }
+
       var insertResult = await supabaseClient.rpc("create_doorbell_ring_by_token", {
         p_qr_token: qrToken,
         p_guest_message: messageText,
         p_guest_message_encrypted: messageEncrypted,
-        p_photo_url: null,
-        p_photo_encrypted: false,
+        p_photo_url: photoUrl,
+        p_photo_encrypted: photoEncrypted,
         p_user_agent_hash: userAgentHash
       });
       if (insertResult.error) throw insertResult.error;
@@ -192,6 +233,12 @@
       if (actionBar) actionBar.style.display = "none";
       if (inlineSuccess) inlineSuccess.classList.add("visible");
       Utils.vibrate([50, 50, 100]);
+
+      // Stop camera if active
+      if (isPhotoActive) {
+        stopCamera();
+        if (cameraDrawer) cameraDrawer.classList.remove("visible");
+      }
 
       supabaseClient
         .channel("reply_" + ringData.id)
@@ -221,7 +268,7 @@
       console.error("Ring error:", err);
       setInvalidQrState(err.message || I18n.t("error_generic"));
       ringSent = false;
-      ringBtn.disabled = false;
+      resolvedDoor = null;
     }
   });
 
@@ -268,7 +315,9 @@
       if (inlineError) inlineError.classList.remove("visible");
       if (actionBar) actionBar.style.display = "flex";
       ringSent = false;
-      ringBtn.disabled = false;
+      resolvedDoor = null;
+      ringBtn.disabled = true;
+      resolveQrToken();
     });
   });
 
@@ -298,4 +347,105 @@
       timestampDisplay.textContent = Utils.formatDate(new Date());
     }
   }, 60000);
+
+  // Camera Management
+  var photoToggleBtn = document.getElementById("photo-toggle-btn");
+  var cameraDrawer = document.getElementById("camera-drawer");
+  var cameraPreview = document.getElementById("camera-preview");
+  var captureCanvas = document.getElementById("capture-canvas");
+  var photoPreviewContainer = document.getElementById("photo-preview-container");
+  var photoPreviewImg = document.getElementById("photo-preview-img");
+  var retakeBtn = document.getElementById("retake-btn");
+  var cameraLoading = document.getElementById("camera-loading");
+
+  async function initCamera() {
+    if (cameraStream) return;
+    cameraLoading.style.display = "flex";
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "user" }, 
+        audio: false 
+      });
+      cameraPreview.srcObject = cameraStream;
+      cameraLoading.style.display = "none";
+    } catch (err) {
+      console.error("Camera access failed:", err);
+      cameraLoading.textContent = "Camera access denied or unavailable.";
+      Utils.showToast("Cannot access camera", "error");
+    }
+  }
+
+  function stopCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+    cameraPreview.srcObject = null;
+  }
+
+  function capturePhoto() {
+    if (!cameraStream) return Promise.reject("No camera stream");
+    return new Promise(function(resolve) {
+      var ctx = captureCanvas.getContext("2d");
+      captureCanvas.width = cameraPreview.videoWidth;
+      captureCanvas.height = cameraPreview.videoHeight;
+      ctx.drawImage(cameraPreview, 0, 0);
+      
+      captureCanvas.toBlob(function(blob) {
+        capturedBlob = blob;
+        photoPreviewImg.src = URL.createObjectURL(blob);
+        photoPreviewContainer.classList.add("visible");
+        Utils.vibrate([20]);
+        resolve(blob);
+      }, "image/jpeg", 0.8);
+    });
+  }
+
+  if (photoToggleBtn) {
+    photoToggleBtn.addEventListener("click", async function() {
+      var isVisible = cameraDrawer.classList.contains("visible");
+      if (!isVisible) {
+        cameraDrawer.classList.add("visible");
+        photoToggleBtn.classList.add("active");
+        photoToggleBtn.textContent = "×";
+        isPhotoActive = true;
+        await initCamera();
+        // UI Sync
+        if (drawer && drawer.classList.contains("visible")) {
+            drawer.classList.remove("visible");
+            if (toggleBtn) {
+                toggleBtn.classList.remove("active");
+                toggleBtn.textContent = "＋";
+            }
+        }
+      } else {
+        cameraDrawer.classList.remove("visible");
+        photoToggleBtn.classList.remove("active");
+        photoToggleBtn.textContent = "📸";
+        isPhotoActive = false;
+        stopCamera();
+        photoPreviewContainer.classList.remove("visible");
+        capturedBlob = null;
+      }
+      Utils.vibrate([10]);
+    });
+  }
+
+  // Camera Management
+  
+  // Intercept capture if needed
+  ringBtn.addEventListener("mousedown", function() {
+    if (isPhotoActive && cameraStream && !photoPreviewContainer.classList.contains("visible")) {
+        capturePhoto();
+    }
+  });
+
+  if (retakeBtn) {
+    retakeBtn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      photoPreviewContainer.classList.remove("visible");
+      capturedBlob = null;
+      Utils.vibrate([10]);
+    });
+  }
 })();

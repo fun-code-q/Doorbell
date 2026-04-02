@@ -10,6 +10,7 @@ const Auth = {
   restorePromise: null,
   activityHandler: null,
   activityEvents: ["mousedown", "keydown", "scroll", "touchstart", "mousemove"],
+  pendingSignOutReason: null,
 
   init(supabaseClient) {
     if (supabaseClient) this.supabase = supabaseClient;
@@ -48,7 +49,8 @@ const Auth = {
         this.onSignIn(session);
       } else if (event === "SIGNED_OUT") {
         this.clearInactivityTimer();
-        this.onSignOut();
+        this.onSignOut(this.pendingSignOutReason || "expired");
+        this.pendingSignOutReason = null;
       } else if (event === "TOKEN_REFRESHED") {
         this.resetInactivityTimer();
       }
@@ -83,15 +85,17 @@ const Auth = {
     }
   },
 
-  async signOut() {
+  async signOut(reason) {
     try {
       if (!this.supabase) return { success: true };
+      this.pendingSignOutReason = reason || "manual";
       const { error } = await this.supabase.auth.signOut();
       if (error) throw error;
       this.session = null;
       this.clearInactivityTimer();
       return { success: true };
     } catch (error) {
+      this.pendingSignOutReason = null;
       return { success: false, error: error.message };
     }
   },
@@ -129,7 +133,7 @@ const Auth = {
         }, timeout - warning);
       }
       this.inactivityTimer = setTimeout(async () => {
-        await this.signOut();
+        await this.signOut("timeout");
         window.location.href = "/owner.html";
       }, timeout);
     }
@@ -182,7 +186,7 @@ const Auth = {
     if (statusDot) statusDot.classList.add("online");
   },
 
-  onSignOut() {
+  onSignOut(reason) {
     Utils.storage.remove("auth_session");
     const overlay = document.getElementById("auth-overlay");
     if (overlay) overlay.classList.remove("hidden");
@@ -193,7 +197,7 @@ const Auth = {
     }
     const statusDot = document.getElementById("status-dot");
     if (statusDot) statusDot.classList.remove("online");
-    if (typeof Utils !== "undefined" && typeof Utils.showToast === "function") {
+    if (reason !== "manual" && typeof Utils !== "undefined" && typeof Utils.showToast === "function") {
       Utils.showToast(I18n ? I18n.t("session_expired") : "Session expired", "warning");
     }
   },

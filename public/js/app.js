@@ -26,6 +26,7 @@ const App = {
   init: async function() {
     if (this.initialized) return;
     this.initialized = true;
+    I18n.init();
     if (!CONFIG.hasSupabaseConfig || !CONFIG.hasSupabaseConfig()) {
       var setupOverlay = document.getElementById("setup-overlay");
       if (setupOverlay) setupOverlay.classList.add("visible");
@@ -33,7 +34,6 @@ const App = {
     }
     this.supabase = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY);
     await Auth.init(this.supabase);
-    I18n.init();
     this.registerServiceWorker();
     this.setupOnlineOfflineHandler();
     this.setupTheme();
@@ -238,6 +238,28 @@ const App = {
     var card = document.createElement("div");
     card.className = "ring-card" + ((!ring.owner_reply || ring.owner_reply === "") ? " unread" : "");
     card.setAttribute("data-ring-id", ring.id);
+
+    // Photo Display
+    if (ring.photo_url) {
+      var photoContainer = document.createElement("div");
+      photoContainer.className = "ring-image-container";
+      
+      var img = document.createElement("img");
+      img.className = "ring-image";
+      img.alt = "Visitor photo";
+      img.loading = "lazy";
+      
+      if (ring.photo_encrypted) {
+        this.decryptAndShowImage(ring.photo_url, img);
+      } else {
+        this.getSignedUrl(ring.photo_url).then(function(url) {
+          if (url) img.src = url;
+        });
+      }
+      
+      photoContainer.appendChild(img);
+      card.appendChild(photoContainer);
+    }
 
     var content = document.createElement("div");
     content.className = "ring-content";
@@ -490,9 +512,13 @@ const App = {
         Utils.showToast(I18n.t("new_ring_alert", { door: payload.new.door_location }), "info");
         Utils.vibrate([100, 50, 100]);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "doorbell_rings", filter: "house_id=eq." + this.currentHouseId }, function() {
-        self.loadRings();
-        self.updateStats();
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "doorbell_rings", filter: "house_id=eq." + this.currentHouseId }, async function() {
+        try {
+          await self.loadRings();
+          self.updateStats();
+        } catch (err) {
+          console.warn("Realtime refresh failed:", err);
+        }
       })
       .subscribe();
   },
@@ -516,7 +542,7 @@ const App = {
       var title = "QR Doorbell: " + (ringData ? ringData.door_location : "New Ring");
       var options = {
         body: ringData && ringData.guest_message_encrypted ? "Visitor left an encrypted message" : (ringData && ringData.guest_message ? ringData.guest_message : "Someone is at the door"),
-        icon: "/icons-192.png",
+        icon: "/icons/icon-192x192.png",
         vibrate: [200, 100, 200],
         tag: "doorbell-ring",
         renotify: true
@@ -737,14 +763,18 @@ const App = {
     var soundEnabled = document.getElementById("setting-sound") ? document.getElementById("setting-sound").checked : true;
     var vibrationEnabled = document.getElementById("setting-vibration") ? document.getElementById("setting-vibration").checked : true;
     var pushEnabled = document.getElementById("setting-push") ? document.getElementById("setting-push").checked : true;
-    var language = document.getElementById("setting-language") ? document.getElementById("setting-language").value : "en";
-    var autoLogoutMinutes = document.getElementById("setting-auto-logout") ? parseInt(document.getElementById("setting-auto-logout").value || "15", 10) : 15;
+    var selectedLanguage = document.getElementById("setting-language") ? document.getElementById("setting-language").value : (I18n.currentLang || "en");
+    if (selectedLanguage !== "de" && selectedLanguage !== "en") selectedLanguage = "en";
+    var autoLogoutRaw = document.getElementById("setting-auto-logout") ? parseInt(document.getElementById("setting-auto-logout").value || "15", 10) : 15;
+    var autoLogoutMinutes = Number.isFinite(autoLogoutRaw) ? Math.min(Math.max(autoLogoutRaw, 1), 120) : 15;
+    var autoLogoutInput = document.getElementById("setting-auto-logout");
+    if (autoLogoutInput) autoLogoutInput.value = autoLogoutMinutes;
     var settingsData = {
       user_id: user.id,
       sound_enabled: soundEnabled,
       vibration_enabled: vibrationEnabled,
       push_enabled: pushEnabled,
-      language: language,
+      language: selectedLanguage,
       auto_logout_minutes: autoLogoutMinutes,
       active_house_id: this.currentHouseId
     };
@@ -760,7 +790,15 @@ const App = {
       Utils.storage.set("auto_logout_minutes", autoLogoutMinutes);
       this.soundEnabled = soundEnabled;
       this.vibrationEnabled = vibrationEnabled;
-      I18n.setLang(language);
+      if (I18n.currentLang !== selectedLanguage) {
+        I18n.setLang(selectedLanguage);
+        var enBtn = document.getElementById("lang-en");
+        var deBtn = document.getElementById("lang-de");
+        if (enBtn && deBtn) {
+          enBtn.classList.toggle("active", selectedLanguage === "en");
+          deBtn.classList.toggle("active", selectedLanguage === "de");
+        }
+      }
       Utils.showToast(I18n.t("saved"), "success");
       await this.loadSettings();
     } catch (err) {
@@ -891,6 +929,9 @@ const App = {
           break;
         case "mark-all-read":
           self.unreadCount = 0;
+          document.querySelectorAll(".ring-card.unread").forEach(function(card) {
+            card.classList.remove("unread");
+          });
           self.updateNotifBadge();
           break;
       }
@@ -921,24 +962,70 @@ const App = {
     if (loginForm) {
       loginForm.addEventListener("submit", function(e) {
         e.preventDefault();
-        var email = document.getElementById("login-email") ? document.getElementById("login-email").value : "";
+        var email = document.getElementById("login-email") ? document.getElementById("login-email").value.trim() : "";
         var password = document.getElementById("login-password") ? document.getElementById("login-password").value : "";
         if (!email || !password) return;
 
-        Utils.showLoading(I18n.t("loading"));
+        Utils.showLoading("Signing in...");
         Auth.signIn(email, password).then(function(result) {
           if (result.success) {
-            Utils.showToast(I18n.t("welcome_back"), "success");
+            Utils.showToast("Welcome back!", "success");
             self.loadDashboard();
           } else {
-            Utils.showToast(I18n.t("invalid_credentials"), "error");
+            Utils.showToast("Invalid credentials", "error");
           }
         }).catch(function(err) {
           console.error("Login error:", err);
-          Utils.showToast(I18n.t("invalid_credentials"), "error");
+          Utils.showToast("Sign in failed", "error");
         }).finally(function() {
           Utils.hideLoading();
         });
+      });
+    }
+
+    var signupForm = document.getElementById("signup-form");
+    if (signupForm) {
+      signupForm.addEventListener("submit", function(e) {
+        e.preventDefault();
+        var email = document.getElementById("signup-email") ? document.getElementById("signup-email").value.trim() : "";
+        var password = document.getElementById("signup-password") ? document.getElementById("signup-password").value : "";
+        if (!email || !password) return;
+
+        Utils.showLoading("Creating vault...");
+        Auth.signUp(email, password).then(function(result) {
+          if (result.success) {
+            Utils.showToast("Vault created! Please check your email and sign in.", "success", 0);
+            document.getElementById("signup-view").style.display = "none";
+            document.getElementById("login-view").style.display = "block";
+          } else {
+            Utils.showToast(result.error || "Sign up failed", "error");
+          }
+        }).catch(function(err) {
+          console.error("Signup error:", err);
+          Utils.showToast("Account creation failed", "error");
+        }).finally(function() {
+          Utils.hideLoading();
+        });
+      });
+    }
+
+    var goToSignup = document.getElementById("go-to-signup");
+    if (goToSignup) {
+      goToSignup.addEventListener("click", function(e) {
+        e.preventDefault();
+        document.getElementById("login-view").style.display = "none";
+        document.getElementById("signup-view").style.display = "block";
+        if (typeof I18n !== "undefined" && I18n.apply) I18n.apply();
+      });
+    }
+
+    var goToLogin = document.getElementById("go-to-login");
+    if (goToLogin) {
+      goToLogin.addEventListener("click", function(e) {
+        e.preventDefault();
+        document.getElementById("signup-view").style.display = "none";
+        document.getElementById("login-view").style.display = "block";
+        if (typeof I18n !== "undefined" && I18n.apply) I18n.apply();
       });
     }
 
