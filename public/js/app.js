@@ -44,7 +44,7 @@ const App = {
 
   registerServiceWorker: function() {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(function(err) {
+      navigator.serviceWorker.register("sw.js").catch(function(err) {
         console.warn("Service Worker registration failed:", err);
       });
     }
@@ -1030,6 +1030,14 @@ const App = {
     }
 
     document.addEventListener("keydown", function(e) {
+      var active = document.activeElement;
+      var isEditable = !!active && (
+        active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.tagName === "SELECT" ||
+        active.isContentEditable
+      );
+      if (isEditable || e.altKey) return;
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case "k":
