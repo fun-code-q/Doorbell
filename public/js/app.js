@@ -542,7 +542,7 @@ const App = {
       var title = "QR Doorbell: " + (ringData ? ringData.door_location : "New Ring");
       var options = {
         body: ringData && ringData.guest_message_encrypted ? "Visitor left an encrypted message" : (ringData && ringData.guest_message ? ringData.guest_message : "Someone is at the door"),
-        icon: "/icons/icon-192x192.png",
+        icon: "icons/icon-192x192.png",
         vibrate: [200, 100, 200],
         tag: "doorbell-ring",
         renotify: true

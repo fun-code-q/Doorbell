@@ -246,7 +246,7 @@ const Utils = {
   /* --- Service Worker --- */
   registerServiceWorker: function() {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(function(err) {
+      navigator.serviceWorker.register("sw.js").catch(function(err) {
         console.warn("Service Worker registration failed:", err);
       });
     }
