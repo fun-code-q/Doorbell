@@ -208,74 +208,6 @@
         .modal-content h2 { margin-bottom: 1rem; color: var(--accent); }
         .modal-content p { margin-bottom: 2rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
 
-        /* Camera UI */
-        .camera-content {
-            display: none;
-            padding: 0;
-            background: #000;
-            border: 1px solid var(--glass-border);
-            border-radius: 1.5rem;
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-            position: relative;
-            aspect-ratio: 4/3;
-            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .camera-content.visible { display: block; border-color: var(--accent); }
-        #camera-preview {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .camera-overlay {
-            position: absolute;
-            inset: 0;
-            border: 2px solid rgba(245, 158, 11, 0.3);
-            border-radius: 1.5rem;
-            pointer-events: none;
-            box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
-        }
-        .camera-loading {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.8);
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-        }
-        .photo-preview-container {
-            position: absolute;
-            inset: 0;
-            background: #000;
-            display: none;
-        }
-        .photo-preview-container.visible { display: block; }
-        #photo-preview-img { width: 100%; height: 100%; object-fit: cover; }
-        .camera-actions {
-            position: absolute;
-            bottom: 1rem;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-        }
-        .btn-camera-action {
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            color: #fff;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-        .btn-camera-action:hover { border-color: var(--accent); color: var(--accent); }
     </style>
 </head>
 <body>
@@ -295,19 +227,6 @@
             </div>
 
             <div class="message-dropdown-container">
-                <div class="camera-content interactive" id="camera-drawer">
-                    <div class="camera-loading" id="camera-loading">Initializing Camera...</div>
-                    <video id="camera-preview" autoplay playsinline muted></video>
-                    <canvas id="capture-canvas" style="display:none;"></canvas>
-                    <div class="camera-overlay"></div>
-                    <div class="photo-preview-container" id="photo-preview-container">
-                        <img id="photo-preview-img" alt="Captured photo">
-                        <div class="camera-actions">
-                            <button class="btn-camera-action interactive" id="retake-btn" title="Retake Photo">↺</button>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="message-content interactive" id="message-drawer">
                     <textarea id="message" class="form-textarea interactive" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500" aria-label="Visitor message"></textarea>
                     <div class="char-counter" id="char-counter">0 / 500</div>
@@ -319,7 +238,6 @@
             
             <div class="action-area">
                 <div class="action-bar" id="action-bar">
-                    <button class="btn btn-secondary btn-icon-sq interactive" id="photo-toggle-btn" aria-label="Add photo" style="display:none;">📸</button>
                     <button class="btn btn-secondary btn-icon-sq interactive" id="message-toggle-btn" aria-label="Add note">＋</button>
                     <div class="ring-btn-container" id="ring-container">
                         <div class="ring-pulse"></div>

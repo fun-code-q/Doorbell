@@ -73,38 +73,6 @@ const Crypto = {
     return new TextDecoder().decode(decrypted);
   },
 
-  /* --- Encrypt a blob (image) — returns { encryptedBlob, salt, iv } --- */
-  encryptBlob: async function(blob, passphrase) {
-    var iv = crypto.getRandomValues(new Uint8Array(this.IV_LENGTH));
-    var derived = await this.deriveKey(passphrase);
-    var arrayBuf = await blob.arrayBuffer();
-    var ciphertext = await crypto.subtle.encrypt(
-      { name: this.ALGO, iv: iv },
-      derived.key,
-      arrayBuf
-    );
-    /* Pack: salt(16) + iv(12) + ciphertext */
-    var packed = new Uint8Array(derived.salt.length + iv.length + ciphertext.byteLength);
-    packed.set(derived.salt, 0);
-    packed.set(iv, derived.salt.length);
-    packed.set(new Uint8Array(ciphertext), derived.salt.length + iv.length);
-    return new Blob([packed], { type: "application/octet-stream" });
-  },
-
-  /* --- Decrypt a blob (image) --- */
-  decryptBlob: async function(encryptedBlob, passphrase) {
-    var arrayBuf = await encryptedBlob.arrayBuffer();
-    var salt = new Uint8Array(arrayBuf.slice(0, this.SALT_LENGTH));
-    var iv = new Uint8Array(arrayBuf.slice(this.SALT_LENGTH, this.SALT_LENGTH + this.IV_LENGTH));
-    var ciphertext = arrayBuf.slice(this.SALT_LENGTH + this.IV_LENGTH);
-    var derived = await this.deriveKey(passphrase, salt);
-    var decrypted = await crypto.subtle.decrypt(
-      { name: this.ALGO, iv: iv },
-      derived.key,
-      ciphertext
-    );
-    return new Blob([decrypted], { type: "image/jpeg" });
-  },
 
   /* --- Generate a random passphrase --- */
   generatePassphrase: function(length) {

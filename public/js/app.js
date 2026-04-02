@@ -239,27 +239,6 @@ const App = {
     card.className = "ring-card" + ((!ring.owner_reply || ring.owner_reply === "") ? " unread" : "");
     card.setAttribute("data-ring-id", ring.id);
 
-    // Photo Display
-    if (ring.photo_url) {
-      var photoContainer = document.createElement("div");
-      photoContainer.className = "ring-image-container";
-      
-      var img = document.createElement("img");
-      img.className = "ring-image";
-      img.alt = "Visitor photo";
-      img.loading = "lazy";
-      
-      if (ring.photo_encrypted) {
-        this.decryptAndShowImage(ring.photo_url, img);
-      } else {
-        this.getSignedUrl(ring.photo_url).then(function(url) {
-          if (url) img.src = url;
-        });
-      }
-      
-      photoContainer.appendChild(img);
-      card.appendChild(photoContainer);
-    }
 
     var content = document.createElement("div");
     content.className = "ring-content";
@@ -356,29 +335,6 @@ const App = {
     return card;
   },
 
-  getSignedUrl: function(filePath) {
-    return this.supabase.storage.from("guest_photos").createSignedUrl(filePath, 3600).then(function(result) {
-      return (result.data && result.data.signedUrl) ? result.data.signedUrl : null;
-    });
-  },
-
-  decryptAndShowImage: function(filePath, imgEl) {
-    if (!Crypto.isSupported()) { Utils.showToast("Web Crypto not supported", "error"); return; }
-    imgEl.style.opacity = "0.3";
-    imgEl.alt = "Decrypting...";
-    this.supabase.storage.from("guest_photos").download(filePath).then(function(result) {
-      if (result.error) throw result.error;
-      return Crypto.decryptBlob(result.data, CONFIG.ENCRYPTION_PASSPHRASE);
-    }).then(function(decryptedBlob) {
-      imgEl.src = URL.createObjectURL(decryptedBlob);
-      imgEl.style.opacity = "1";
-      imgEl.alt = "Decrypted visitor photo";
-    }).catch(function(err) {
-      console.error("Image decryption failed:", err);
-      imgEl.alt = "Decryption failed";
-      Utils.showToast("Failed to decrypt image", "error");
-    });
-  },
 
   decryptAndShowMessage: function(encryptedText, el) {
     if (!Crypto.isSupported()) { Utils.showToast("Web Crypto not supported", "error"); return; }

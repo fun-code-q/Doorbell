@@ -47,40 +47,7 @@ const Utils = {
     return diffDays + "d ago";
   },
 
-  /* --- Image Compression --- */
-  compressImage: function(file, maxWidth, maxHeight, quality) {
-    maxWidth = maxWidth || 1200;
-    maxHeight = maxHeight || 1200;
-    quality = quality || 0.8;
-    return new Promise(function(resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var img = new Image();
-        img.onload = function() {
-          var canvas = document.createElement("canvas");
-          var width = img.width;
-          var height = img.height;
-          if (width > maxWidth || height > maxHeight) {
-            var ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-          canvas.width = width;
-          canvas.height = height;
-          var ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob(function(blob) {
-            if (blob) resolve(blob);
-            else reject(new Error("Compression failed"));
-          }, "image/jpeg", quality);
-        };
-        img.onerror = function() { reject(new Error("Image load failed")); };
-        img.src = e.target.result;
-      };
-      reader.onerror = function() { reject(new Error("File read failed")); };
-      reader.readAsDataURL(file);
-    });
-  },
+
 
   /* --- Toast Notifications --- */
   showToast: function(message, type, duration) {
