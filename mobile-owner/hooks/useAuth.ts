@@ -5,8 +5,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { SafeSecureStore } from '../lib/safeStorage';
 import { supabase } from '../lib/supabase';
 import { CONFIG } from '../lib/config';
 import { Storage } from '../lib/storage';
@@ -118,25 +116,4 @@ export function useAuth(): AuthState & AuthActions {
     signOut,
     getAccessToken,
   };
-}
-
-// -----------------------------------------------------------------------
-// Secure Store helpers for passphrase
-// -----------------------------------------------------------------------
-export const PASSPHRASE_KEY = 'qr_vault_passphrase';
-
-export async function getStoredPassphrase(): Promise<string | null> {
-  try {
-    return await SafeSecureStore.getItemAsync(PASSPHRASE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export async function savePassphrase(passphrase: string): Promise<void> {
-  await SafeSecureStore.setItemAsync(PASSPHRASE_KEY, passphrase);
-}
-
-export async function deletePassphrase(): Promise<void> {
-  await SafeSecureStore.deleteItemAsync(PASSPHRASE_KEY);
 }

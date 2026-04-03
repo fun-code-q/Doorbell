@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
-  ActivityIndicator,
   Platform,
   StyleSheet,
   Text,
@@ -15,7 +14,6 @@ export interface Ring {
   house_id: string;
   door_location: string;
   guest_message: string | null;
-  guest_message_encrypted: boolean;
   owner_reply: string | null;
   status: string;
   created_at: string;
@@ -29,7 +27,6 @@ interface RingCardProps {
   onCustomReply: (id: string) => void;
   onDelete: (id: string) => void;
   onOpenLocation: (locationName: string) => void;
-  onDecrypt: (encryptedText: string) => Promise<string>;
   ackLabel: string;
   comingLabel: string;
   replyLabel: string;
@@ -57,7 +54,6 @@ export function RingCard({
   onCustomReply,
   onDelete,
   onOpenLocation,
-  onDecrypt,
   ackLabel,
   comingLabel,
   replyLabel,
@@ -66,35 +62,6 @@ export function RingCard({
 }: RingCardProps) {
   const unresolved = !ring.owner_reply || ring.owner_reply === '';
   const unread = typeof isUnread === 'boolean' ? isUnread : unresolved;
-  const [decryptedMessage, setDecryptedMessage] = useState<string | null>(null);
-  const [decrypting, setDecrypting] = useState(false);
-  const [decryptError, setDecryptError] = useState(false);
-
-  useEffect(() => {
-    setDecryptedMessage(null);
-    setDecryptError(false);
-    setDecrypting(false);
-  }, [ring.id]);
-
-  const handleDecrypt = async () => {
-    if (!ring.guest_message) return;
-    setDecrypting(true);
-    setDecryptError(false);
-    try {
-      const plain = await onDecrypt(ring.guest_message);
-      setDecryptedMessage(plain);
-    } catch {
-      setDecryptError(true);
-    } finally {
-      setDecrypting(false);
-    }
-  };
-
-  useEffect(() => {
-    if (ring.guest_message_encrypted && ring.guest_message && !decryptedMessage && !decrypting && !decryptError) {
-      handleDecrypt();
-    }
-  }, [ring.id, ring.guest_message, ring.guest_message_encrypted]);
 
   return (
     <View style={[styles.card, unread && styles.cardUnread]}>
@@ -123,30 +90,12 @@ export function RingCard({
         {ring.guest_message ? (
           <View style={styles.messageBubble}>
             <View style={styles.messageHeader}>
-              <MaterialCommunityIcons 
-                name={ring.guest_message_encrypted ? "lock" : "chat-outline"} 
-                size={12} 
-                color={Colors.textMuted} 
-              />
+              <MaterialCommunityIcons name="chat-outline" size={12} color={Colors.textMuted} />
               <Text style={styles.messageLabel}>
-                {ring.guest_message_encrypted ? 'Encrypted' : 'Visitor Message'}
+                Visitor Message
               </Text>
             </View>
-            {ring.guest_message_encrypted && !decryptedMessage ? (
-              <TouchableOpacity onPress={handleDecrypt} disabled={decrypting} style={styles.decryptBtn}>
-                {decrypting ? (
-                  <ActivityIndicator size="small" color={Colors.accent} />
-                ) : decryptError ? (
-                  <Text style={styles.decryptError}>Decryption failed</Text>
-                ) : (
-                  <Text style={styles.decryptHint}>Tap to decrypt</Text>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.messageText}>
-                {decryptedMessage || ring.guest_message}
-              </Text>
-            )}
+            <Text style={styles.messageText}>{ring.guest_message}</Text>
           </View>
         ) : (
           <Text style={styles.noMessage}>Signal received (no message)</Text>
@@ -284,19 +233,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizeMd,
     color: Colors.textPrimary,
     lineHeight: 22,
-  },
-  decryptBtn: {
-    paddingVertical: 4,
-  },
-  decryptHint: {
-    fontFamily: Typography.bodySemiBold,
-    fontSize: Typography.sizeSm,
-    color: Colors.accent,
-  },
-  decryptError: {
-    fontFamily: Typography.body,
-    fontSize: Typography.sizeSm,
-    color: Colors.error,
   },
   noMessage: {
     fontFamily: Typography.body,

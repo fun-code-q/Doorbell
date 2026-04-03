@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
 
   const ringResult = await admin
     .from('doorbell_rings')
-    .select('id,house_id,door_location,guest_message,guest_message_encrypted')
+    .select('id,house_id,door_location,guest_message')
     .eq('id', ringId)
     .maybeSingle();
 
@@ -116,9 +116,7 @@ Deno.serve(async (req) => {
   }
 
   const doorLocation = (ring.door_location || 'Doorbell').toString();
-  const bodyText = ring.guest_message_encrypted
-    ? 'Visitor left an encrypted message.'
-    : ((ring.guest_message || 'Someone is at the door.') as string);
+  const bodyText = (ring.guest_message || 'Someone is at the door.') as string;
 
   const messages: PushMessage[] = subscriptions.map((sub) => ({
     to: sub.expo_push_token,
@@ -183,4 +181,3 @@ Deno.serve(async (req) => {
     invalid_tokens_deactivated: invalidTokens.length,
   });
 });
-

@@ -663,20 +663,6 @@
   animation: fadeIn 0.3s ease;
 }
 
-/* Encryption Badge */
-.encryption-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.8rem;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  border-radius: 2rem;
-  font-size: 0.7rem;
-  color: var(--success);
-  font-weight: 600;
-}
-
 /* Ring Card Position */
 .ring-card {
   position: relative;

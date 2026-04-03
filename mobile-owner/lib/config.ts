@@ -5,7 +5,6 @@ export const CONFIG = {
   // Set your Supabase credentials here (or use EAS env secrets at build time)
   SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || 'REPLACE_WITH_YOUR_SUPABASE_URL',
   SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'REPLACE_WITH_YOUR_ANON_KEY',
-  ENCRYPTION_PASSPHRASE: process.env.EXPO_PUBLIC_ENCRYPTION_PASSPHRASE || '',
 
   APP_VERSION: '1.0.0',
   DEFAULT_LANGUAGE: 'en',
@@ -30,7 +29,6 @@ export const CONFIG = {
     analytics: true,
     auditLog: true,
     darkMode: false, // handled natively
-    encryption: true,
     enableImages: true,
   },
 

@@ -266,7 +266,6 @@ export default function DashboardScreen() {
           showToast(t('deleted'), 'success');
         }
       }}
-      onDecrypt={dashboard.decryptMessage}
       ackLabel={t('ack')}
       comingLabel={t('coming')}
       replyLabel={t('secure_reply')}

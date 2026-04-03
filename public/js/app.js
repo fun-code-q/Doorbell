@@ -264,19 +264,10 @@ const App = {
       msgBubble.style.marginTop = "0";
       var msgLabel = document.createElement("div");
       msgLabel.className = "message-bubble-label";
-      msgLabel.textContent = ring.guest_message_encrypted ? "Encrypted Message" : "Visitor Message";
+      msgLabel.textContent = "Visitor Message";
       var msgText = document.createElement("div");
       msgText.className = "message-bubble-text";
-      if (ring.guest_message_encrypted) {
-        msgText.textContent = "[Click to decrypt]";
-        msgText.style.cursor = "pointer";
-        msgText.style.color = "#f59e0b";
-        (function(encText, el) {
-          msgText.addEventListener("click", function() { self.decryptAndShowMessage(encText, el); });
-        })(ring.guest_message, msgText);
-      } else {
-        msgText.textContent = ring.guest_message;
-      }
+      msgText.textContent = ring.guest_message;
       msgBubble.appendChild(msgLabel);
       msgBubble.appendChild(msgText);
       content.appendChild(msgBubble);
@@ -333,22 +324,6 @@ const App = {
 
     card.appendChild(actions);
     return card;
-  },
-
-
-  decryptAndShowMessage: function(encryptedText, el) {
-    if (!Crypto.isSupported()) { Utils.showToast("Web Crypto not supported", "error"); return; }
-    el.textContent = "Decrypting...";
-    Crypto.decryptText(encryptedText, CONFIG.ENCRYPTION_PASSPHRASE).then(function(plaintext) {
-      el.textContent = plaintext;
-      el.style.color = "";
-      el.style.cursor = "";
-    }).catch(function(err) {
-      console.error("Message decryption failed:", err);
-      el.textContent = "Decryption failed";
-      el.style.color = "#ef4444";
-      Utils.showToast("Failed to decrypt message", "error");
-    });
   },
 
   sendReply: async function(ringId, message) {
@@ -497,7 +472,7 @@ const App = {
     if ("Notification" in window && Notification.permission === "granted") {
       var title = "QR Doorbell: " + (ringData ? ringData.door_location : "New Ring");
       var options = {
-        body: ringData && ringData.guest_message_encrypted ? "Visitor left an encrypted message" : (ringData && ringData.guest_message ? ringData.guest_message : "Someone is at the door"),
+        body: ringData && ringData.guest_message ? ringData.guest_message : "Someone is at the door",
         icon: "icons/icon-192x192.png",
         vibrate: [200, 100, 200],
         tag: "doorbell-ring",

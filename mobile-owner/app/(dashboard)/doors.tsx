@@ -22,12 +22,11 @@ import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 
-import { useAuth, PASSPHRASE_KEY } from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { useSharedDashboard } from './_layout';
 import { DoorPoint, DoorPointMember } from '../../hooks/useOwnerDashboard';
 import { useI18n } from '../../hooks/useI18n';
 import { showToast } from '../../components/Toast';
-import { SafeSecureStore } from '../../lib/safeStorage';
 import { Colors, Radii, Spacing, Typography } from '../../constants/theme';
 
 const GUEST_BASE_URL = 'https://fun-code-q.github.io/Doorbell/';
@@ -51,13 +50,8 @@ export default function DoorsScreen() {
   const [isManagingMembers, setIsManagingMembers] = useState(false);
   const [editDoorName, setEditDoorName] = useState('');
   const [editDoorDesc, setEditDoorDesc] = useState('');
-  const [hasPassphrase, setHasPassphrase] = useState(true);
   
   const qrRef = useRef<ViewShot>(null);
-
-  useEffect(() => {
-    SafeSecureStore.getItemAsync(PASSPHRASE_KEY).then(val => setHasPassphrase(!!val));
-  }, []);
 
   useEffect(() => {
     if (dashboard.currentHouseId) {
@@ -66,10 +60,6 @@ export default function DoorsScreen() {
   }, [dashboard.currentHouseId]);
 
   const handleAddDoor = async () => {
-    if (!hasPassphrase) {
-      showToast('Please create an encryption passphrase in Settings first', 'warning');
-      return;
-    }
     if (!doorName.trim()) {
       showToast('Enter a door name', 'warning');
       return;

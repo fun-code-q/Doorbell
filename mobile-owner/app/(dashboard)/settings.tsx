@@ -9,35 +9,25 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
-import { SafeSecureStore } from '../../lib/safeStorage';
-import { useAuth, PASSPHRASE_KEY } from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { useSharedDashboard } from './_layout';
 import { useI18n } from '../../hooks/useI18n';
 import { showToast } from '../../components/Toast';
 import { Colors, Radii, Spacing, Typography } from '../../constants/theme';
 
 export default function SettingsScreen() {
-  const { user, signOut } = useAuth();
-  const { t, lang, setLang } = useI18n();
+  const { user } = useAuth();
+  const { t, lang } = useI18n();
   const dashboard = useSharedDashboard();
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(true);
-  const [autoLogout, setAutoLogout] = useState('15');
   const [saving, setSaving] = useState(false);
-
-  // Passphrase states
-  const [passphrase, setPassphrase] = useState('');
-  const [passphraseConfirm, setPassphraseConfirm] = useState('');
-  const [hasPassphrase, setHasPassphrase] = useState(false);
-  const [showPassphraseForm, setShowPassphraseForm] = useState(false);
 
   useEffect(() => {
     if (user?.id && dashboard.currentHouseId) {
@@ -51,12 +41,6 @@ export default function SettingsScreen() {
     }
   }, [user?.id, dashboard.currentHouseId]);
 
-  useEffect(() => {
-    SafeSecureStore.getItemAsync(PASSPHRASE_KEY).then((val) => {
-      setHasPassphrase(!!val);
-    });
-  }, []);
-
   const handleSave = async () => {
     if (!user?.id) return;
     setSaving(true);
@@ -69,14 +53,6 @@ export default function SettingsScreen() {
         language: lang,
         auto_logout_minutes: 0,
       });
-
-      // 2. Save passphrase if provided (non-empty)
-      if (passphrase.trim()) {
-        await SafeSecureStore.setItemAsync(PASSPHRASE_KEY, passphrase.trim());
-        setHasPassphrase(true);
-        setPassphrase('');
-        setShowPassphraseForm(false);
-      }
 
       showToast(t('saved'), 'success');
     } catch (err) {
@@ -97,34 +73,6 @@ export default function SettingsScreen() {
           <SettingRow label={t('notification_sound')} value={soundEnabled} onChange={setSoundEnabled} />
           <SettingRow label={t('vibration')} value={vibrationEnabled} onChange={setVibrationEnabled} />
           <SettingRow label={t('push_enabled')} value={pushEnabled} onChange={setPushEnabled} />
-        </View>
-
-        {/* Encryption passphrase */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🔐 Encryption Passphrase</Text>
-          <Text style={styles.cardSub}>{t('passphrase_hint')}</Text>
-          {hasPassphrase && !showPassphraseForm ? (
-            <View>
-              <Text style={styles.passphraseSet}>✓ Passphrase is set</Text>
-              <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={() => setShowPassphraseForm(true)}
-              >
-                <Text style={styles.secondaryBtnText}>Change Passphrase</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View>
-              <TextInput
-                style={styles.input}
-                value={passphrase}
-                onChangeText={setPassphrase}
-                placeholder={t('passphrase_placeholder')}
-                placeholderTextColor={Colors.textMuted}
-                secureTextEntry
-              />
-            </View>
-          )}
         </View>
 
         {/* Save settings */}
@@ -210,12 +158,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
   },
-  cardSub: {
-    fontFamily: Typography.body,
-    fontSize: Typography.sizeSm,
-    color: Colors.textMuted,
-    marginBottom: Spacing.sm,
-  },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -240,18 +182,6 @@ const styles = StyleSheet.create({
     width: 80,
     textAlign: 'center',
   },
-  input: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    borderRadius: Radii.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    color: Colors.textPrimary,
-    fontFamily: Typography.body,
-    fontSize: Typography.sizeMd,
-    marginBottom: Spacing.sm,
-  },
   langRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -272,12 +202,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   langPillTextActive: { color: Colors.accent },
-  passphraseSet: {
-    fontFamily: Typography.bodySemiBold,
-    fontSize: Typography.sizeMd,
-    color: Colors.success,
-    marginBottom: Spacing.sm,
-  },
   primaryBtn: {
     backgroundColor: Colors.accent,
     borderRadius: Radii.lg,
@@ -303,22 +227,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  secondaryBtn: {
-    backgroundColor: Colors.glass,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    marginTop: Spacing.xs,
-  },
-  secondaryBtnText: {
-    fontFamily: Typography.headingBold,
-    fontSize: Typography.sizeSm,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   signOutBtn: {
     backgroundColor: 'rgba(239,68,68,0.08)',
     borderWidth: 1,
@@ -335,3 +243,4 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 });
+

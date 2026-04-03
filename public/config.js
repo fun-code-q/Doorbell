@@ -19,13 +19,6 @@
     SUPABASE_KEY: runtime.SUPABASE_KEY || runtime.SUPABASE_ANON_KEY || resolvedSupabaseAnonKey,
 
 
-    /* Encryption — a shared passphrase for encrypting messages and images.
-       This should be set to a strong, unique value per deployment.
-       The owner dashboard uses this to decrypt messages.
-       WARNING: If this is public, encryption provides obfuscation only.
-       For true security, use Supabase Edge Functions for server-side encryption. */
-    ENCRYPTION_PASSPHRASE: runtime.ENCRYPTION_PASSPHRASE || "REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE",
-
     /* App */
     APP_VERSION: "3.1.0",
     DEFAULT_LANGUAGE: "en",
@@ -47,7 +40,6 @@
       auditLog: true,
       darkMode: true,
       offlineMode: true,
-      encryption: true,
       guestLiveReplies: true
     },
 
@@ -74,10 +66,6 @@
     }
   };
 
-  /* Warn in dev if encryption passphrase is default */
-  if (/^REPLACE_WITH_/i.test((CONFIG.ENCRYPTION_PASSPHRASE || "").trim())) {
-    console.warn("[QR Doorbell] Encryption passphrase is not configured. Set ENCRYPTION_PASSPHRASE.");
-  }
   if (!CONFIG.hasSupabaseConfig()) {
     console.warn("[QR Doorbell] Supabase is not fully configured. Set SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_KEY.");
   }

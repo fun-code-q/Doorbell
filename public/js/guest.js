@@ -13,7 +13,6 @@
   var offlineIndicator = document.getElementById("offline-indicator");
   var timestampDisplay = document.getElementById("timestamp-view");
   var charCounter = document.getElementById("char-counter");
-  var encryptionIndicator = document.getElementById("encryption-indicator");
   
   var actionBar = document.getElementById("action-bar");
   var statusError = document.getElementById("status-error");
@@ -34,7 +33,9 @@
   var resolvedDoor = null;
   var ringResetTimer = null;
   var replySubscription = null;
+  var replyPollTimer = null;
   var RING_ACTIVE_MS = 15000;
+  var REPLY_POLL_MS = 2000;
 
   I18n.init();
 
@@ -47,18 +48,6 @@
   supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY);
 
   ringBtn.disabled = true;
-
-  var encryptionReady = !!(
-    CONFIG.FEATURE_FLAGS &&
-    CONFIG.FEATURE_FLAGS.encryption &&
-    Crypto.isSupported() &&
-    CONFIG.ENCRYPTION_PASSPHRASE &&
-    !/^REPLACE_WITH_/i.test(String(CONFIG.ENCRYPTION_PASSPHRASE).trim())
-  );
-
-  if (encryptionReady) {
-    encryptionIndicator.style.display = "inline-flex";
-  }
 
   function setInvalidState(msg) {
     if (errorTextEl) errorTextEl.textContent = msg || "Invalid Token";
@@ -109,6 +98,54 @@
     }
   }
 
+  function stopReplyPolling() {
+    if (replyPollTimer) {
+      clearInterval(replyPollTimer);
+      replyPollTimer = null;
+    }
+  }
+
+  function stopReplyWatchers() {
+    stopReplySubscription();
+    stopReplyPolling();
+  }
+
+  async function pollRingReplyOnce(ringId) {
+    if (!ringId || !qrToken) return;
+    try {
+      var res = await supabaseClient.rpc("get_guest_ring_reply_by_token", {
+        p_ring_id: ringId,
+        p_qr_token: qrToken
+      });
+      if (res.error) throw res.error;
+
+      var row = Array.isArray(res.data) ? res.data[0] : res.data;
+      if (!row) return;
+
+      if (row.owner_reply && String(row.owner_reply).trim() !== "") {
+        showReply(String(row.owner_reply).trim());
+        stopReplyWatchers();
+        resetUi();
+        return;
+      }
+
+      if (row.status === "dismissed" || row.status === "responded") {
+        stopReplyWatchers();
+        resetUi();
+      }
+    } catch (err) {
+      // Keep polling quietly; occasional network hiccups should not break UX.
+    }
+  }
+
+  function startReplyPolling(ringId) {
+    stopReplyPolling();
+    pollRingReplyOnce(ringId);
+    replyPollTimer = setInterval(function() {
+      pollRingReplyOnce(ringId);
+    }, REPLY_POLL_MS);
+  }
+
   function startReplySubscription(ringId) {
     stopReplySubscription();
     
@@ -124,14 +161,19 @@
         var row = payload.new;
         if (row && row.owner_reply && String(row.owner_reply).trim() !== "") {
           showReply(String(row.owner_reply).trim());
-          stopReplySubscription();
+          stopReplyWatchers();
           resetUi();
         } else if (row && (row.status === 'dismissed' || row.status === 'responded')) {
-          stopReplySubscription();
+          stopReplyWatchers();
           resetUi();
         }
       })
-      .subscribe();
+      .subscribe(function(status) {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Realtime can be blocked for anon clients; polling keeps live replies reliable.
+          startReplyPolling(ringId);
+        }
+      });
   }
 
   async function resolve() {
@@ -176,21 +218,11 @@
 
     try {
       var msg = messageInput.value ? messageInput.value.trim() : null;
-      var encrypted = false;
-      if (msg && encryptionReady) {
-        try {
-          msg = await Crypto.encryptText(msg, CONFIG.ENCRYPTION_PASSPHRASE);
-          encrypted = true;
-        } catch (e) { console.warn("Encryption failed", e); }
-      }
-
       var hash = null;
-      try { hash = await Crypto.hashString(navigator.userAgent || "anon"); } catch (e) {}
 
       var res = await supabaseClient.rpc("create_doorbell_ring_by_token", {
         p_qr_token: qrToken,
         p_guest_message: msg,
-        p_guest_message_encrypted: encrypted,
         p_user_agent_hash: hash
       });
       if (res.error) throw res.error;
@@ -207,7 +239,10 @@
       ringResetTimer = setTimeout(resetUi, RING_ACTIVE_MS);
       
       var liveReplies = !!(CONFIG.FEATURE_FLAGS && CONFIG.FEATURE_FLAGS.guestLiveReplies);
-      if (liveReplies) startReplySubscription(ring.id);
+      if (liveReplies && ring && ring.id) {
+        startReplySubscription(ring.id);
+        startReplyPolling(ring.id);
+      }
       
       if (timestampDisplay) timestampDisplay.textContent = new Date().toLocaleTimeString();
     } catch (err) {
@@ -241,6 +276,7 @@
   document.querySelectorAll('[data-action="retry-capture"]').forEach(el => {
     el.addEventListener("click", () => {
       stopReplySubscription();
+      stopReplyPolling();
       resetUi();
       statusError.classList.remove("visible");
       actionBar.style.display = "flex";
@@ -248,6 +284,5 @@
     });
   });
 
-  window.addEventListener("beforeunload", stopReplySubscription);
+  window.addEventListener("beforeunload", stopReplyWatchers);
 })();
-

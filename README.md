@@ -18,7 +18,7 @@ A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It 
 ### 🏁 Guest Experience (App-Free)
 - **Zero-Install**: Works directly in any modern mobile browser.
 - **Location-Aware QR**: Prevents "fake" rings from remote locations.
-- **Encrypted Messaging**: Optional client-side message encryption for privacy.
+- **Guest Messaging**: Guests can send optional text notes with each ring.
 - **Internationalization**: Full i18n support for multiple languages.
 
 ### 🏠 Owner Management
@@ -33,9 +33,9 @@ A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It 
 ### 🛡️ Security & Stability
 - **Row-Level Security (RLS)**: Robust Postgres policies for tenant isolation.
 - **Rate Limiting**: Integrated DB triggers to prevent spam.
-- **End-to-End Encryption**: Secure message handling between guest and owner.
+- **Secure Transport**: HTTPS + Supabase Auth/RLS protect app access and data flow.
 - **PWA Ready**: Offline support and home-screen installation.
-- **Enterprise Settings**: Master PIN protection for sensitive owner actions.
+- **Enterprise Settings**: Strong owner controls with audit logging and role-based access.
 
 ---
 

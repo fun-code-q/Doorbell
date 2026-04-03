@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v3.2.5";
+const CACHE_VERSION = "v3.2.6";
 const CACHE_NAME = `qr-doorbell-${CACHE_VERSION}`;
 const OFFLINE_URL = "offline.html";
 
@@ -13,7 +13,6 @@ const APP_SHELL = [
   "css/components.css",
   "js/utils.js",
   "js/i18n.js",
-  "js/crypto.js",
   "js/guest.js",
   "js/auth.js",
   "js/app.js",

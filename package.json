@@ -8,7 +8,7 @@
     "start": "npx serve public -l 3000",
     "lint": "eslint \"public/**/*.js\"",
     "lint:fix": "eslint \"public/**/*.js\" --fix",
-    "check:syntax": "node --check public/js/utils.js && node --check public/js/i18n.js && node --check public/js/crypto.js && node --check public/js/auth.js && node --check public/js/app.js && node --check public/js/guest.js && node --check public/js/owner-bootstrap.js && node --check public/sw.js && node --check public/config.js",
+    "check:syntax": "node --check public/js/utils.js && node --check public/js/i18n.js && node --check public/js/auth.js && node --check public/js/app.js && node --check public/js/guest.js && node --check public/js/owner-bootstrap.js && node --check public/sw.js && node --check public/config.js",
     "build": "echo 'No build step - static files ready'",
     "apk:init": "npx -y @bubblewrap/cli init --manifest=public/manifest.json",
     "apk:build": "npx -y @bubblewrap/cli build"

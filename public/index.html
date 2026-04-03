@@ -155,21 +155,6 @@
             gap: 10px;
         }
 
-        .encryption-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.45rem 0.75rem;
-            border-radius: 999px;
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.32);
-            color: var(--guest-success);
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
         .info-trigger {
             width: 34px;
             height: 34px;
@@ -566,11 +551,7 @@
 
                 <div id="main-interface" class="interface-stack">
                     <div class="security-strip">
-                        <div id="encryption-indicator" class="secure-badge" style="display:none;">
-                            <span class="lock-icon"></span>
-                            <span data-i18n="encrypted">Secure Connection</span>
-                        </div>
-                        <button class="info-toggle" id="info-trigger" aria-label="Security Details">i</button>
+                        <button class="info-toggle" id="info-trigger" aria-label="How It Works">i</button>
                     </div>
 
                     <div class="input-panel" id="message-drawer">
@@ -623,7 +604,7 @@
     <div id="secure-modal" class="overlay-blur">
         <div class="modal-surface animate-scale-in">
             <h2 data-i18n="how_it_works">Security Overview</h2>
-            <p data-i18n="instruction_desc">This entry point uses end-to-end encryption. Your request is transmitted directly to the authorized occupant. Stay on this screen for an immediate response.</p>
+            <p data-i18n="instruction_desc">Your request is sent instantly to the owner. Stay on this screen for a live response.</p>
             <button class="btn btn-primary btn-full" id="modal-close">Understood</button>
         </div>
     </div>
@@ -631,7 +612,6 @@
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/utils.js"></script>
-    <script src="js/crypto.js"></script>
     <script src="js/i18n.js"></script>
     <script src="js/guest.js"></script>
 </body>

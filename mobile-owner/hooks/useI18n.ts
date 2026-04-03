@@ -76,12 +76,6 @@ const translations: Record<string, Record<string, string>> = {
     vault_setup: 'System Setup',
     vault_setup_desc: 'Please configure your Supabase credentials before accessing the dashboard.',
     next: 'Load More',
-    passphrase_prompt: 'Set Encryption Passphrase',
-    passphrase_hint: 'This key decrypts visitor messages. Store it safely.',
-    passphrase_placeholder: 'Enter a strong passphrase...',
-    passphrase_confirm: 'Confirm Passphrase',
-    passphrase_mismatch: 'Passphrases do not match',
-    passphrase_saved: 'Passphrase saved securely',
   },
   de: {
     app_name: 'QR Türklingel',
@@ -150,12 +144,6 @@ const translations: Record<string, Record<string, string>> = {
     vault_setup: 'System-Einrichtung',
     vault_setup_desc: 'Bitte konfigurieren Sie Ihre Supabase-Zugangsdaten.',
     next: 'Mehr Laden',
-    passphrase_prompt: 'Verschlüsselungs-Passphrase setzen',
-    passphrase_hint: 'Dieser Schlüssel entschlüsselt Besuchernachrichten.',
-    passphrase_placeholder: 'Passphrase eingeben...',
-    passphrase_confirm: 'Passphrase bestätigen',
-    passphrase_mismatch: 'Passphrases stimmen nicht überein',
-    passphrase_saved: 'Passphrase sicher gespeichert',
   },
 };
 

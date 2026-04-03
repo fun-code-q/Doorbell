@@ -12,8 +12,6 @@ import { supabase } from '../lib/supabase';
 import { Storage } from '../lib/storage';
 import { CONFIG } from '../lib/config';
 import { translate } from './useI18n';
-import { decryptText } from '../lib/crypto';
-import { getStoredPassphrase } from './useAuth';
 
 // -----------------------------------------------------------------------
 // Types (mirrors the DB schema)
@@ -23,7 +21,6 @@ export interface Ring {
   house_id: string;
   door_location: string;
   guest_message: string | null;
-  guest_message_encrypted: boolean;
   owner_reply: string | null;
   status: string;
   created_at: string;
@@ -486,32 +483,6 @@ export function useOwnerDashboard() {
   }, [rings]);
 
   // -----------------------------------------------------------------------
-  // Message decryption
-  // -----------------------------------------------------------------------
-  const decryptMessage = useCallback(async (encryptedText: string): Promise<string> => {
-    const storedPassphrase = (await getStoredPassphrase() || '').trim();
-    const configuredPassphrase = (CONFIG.ENCRYPTION_PASSPHRASE || '').trim();
-
-    const candidates = [storedPassphrase, configuredPassphrase]
-      .filter((value, index, arr) => !!value && !/^REPLACE_WITH_/i.test(value) && arr.indexOf(value) === index);
-
-    if (!candidates.length) {
-      throw new Error('No passphrase configured. Set it in Settings or EXPO_PUBLIC_ENCRYPTION_PASSPHRASE.');
-    }
-
-    let lastError: Error | null = null;
-    for (const passphrase of candidates) {
-      try {
-        return await decryptText(encryptedText, passphrase);
-      } catch (err) {
-        lastError = err as Error;
-      }
-    }
-
-    throw lastError || new Error('Decryption failed');
-  }, []);
-
-  // -----------------------------------------------------------------------
   // Computed stats (unchanged from app.js)
   // -----------------------------------------------------------------------
   const computeStats = useCallback((data: Ring[]): Stats => {
@@ -659,9 +630,7 @@ export function useOwnerDashboard() {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'QR Doorbell: ' + (ring.door_location || 'New Ring'),
-          body: ring.guest_message_encrypted
-            ? 'Visitor left an encrypted message'
-            : ring.guest_message || 'Someone is at the door',
+          body: ring.guest_message || 'Someone is at the door',
           sound: true,
         },
         trigger: null,
@@ -1062,7 +1031,6 @@ export function useOwnerDashboard() {
     promptCustomReply,
     deleteRing,
     markAllRead,
-    decryptMessage,
     changeHouse,
     createHouse,
     addHouseMember,
