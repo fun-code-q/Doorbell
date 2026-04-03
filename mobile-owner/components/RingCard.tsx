@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -28,25 +28,26 @@ interface RingCardProps {
   onComing: (id: string) => void;
   onCustomReply: (id: string) => void;
   onDelete: (id: string) => void;
+  onOpenLocation: (locationName: string) => void;
   onDecrypt: (encryptedText: string) => Promise<string>;
   ackLabel: string;
   comingLabel: string;
   replyLabel: string;
-  deleteLabel: string;
   signalInbound: string;
+  isUnread?: boolean;
 }
 
-function formatRelative(dateStr: string): string {
-  const now = new Date();
+function formatDateTime12h(dateStr: string): string {
   const d = new Date(dateStr);
-  const diffMs = now.getTime() - d.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 export function RingCard({
@@ -55,17 +56,25 @@ export function RingCard({
   onComing,
   onCustomReply,
   onDelete,
+  onOpenLocation,
   onDecrypt,
   ackLabel,
   comingLabel,
   replyLabel,
-  deleteLabel,
   signalInbound,
+  isUnread,
 }: RingCardProps) {
-  const isUnread = !ring.owner_reply || ring.owner_reply === '';
+  const unresolved = !ring.owner_reply || ring.owner_reply === '';
+  const unread = typeof isUnread === 'boolean' ? isUnread : unresolved;
   const [decryptedMessage, setDecryptedMessage] = useState<string | null>(null);
   const [decrypting, setDecrypting] = useState(false);
   const [decryptError, setDecryptError] = useState(false);
+
+  useEffect(() => {
+    setDecryptedMessage(null);
+    setDecryptError(false);
+    setDecrypting(false);
+  }, [ring.id]);
 
   const handleDecrypt = async () => {
     if (!ring.guest_message) return;
@@ -81,17 +90,32 @@ export function RingCard({
     }
   };
 
+  useEffect(() => {
+    if (ring.guest_message_encrypted && ring.guest_message && !decryptedMessage && !decrypting && !decryptError) {
+      handleDecrypt();
+    }
+  }, [ring.id, ring.guest_message, ring.guest_message_encrypted]);
+
   return (
-    <View style={[styles.card, isUnread && styles.cardUnread]}>
+    <View style={[styles.card, unread && styles.cardUnread]}>
       {/* Header row */}
       <View style={styles.header}>
-        <View style={styles.doorBadge}>
-          <MaterialCommunityIcons name="door-closed" size={14} color={Colors.accent} />
-          <Text style={styles.doorText} numberOfLines={1}>
-            {ring.door_location || 'Unknown'}
-          </Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.locationTrigger}
+            onPress={() => onOpenLocation((ring.door_location || 'Unknown').trim() || 'Unknown')}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="door-closed" size={14} color={Colors.accent} />
+            <Text style={styles.doorText} numberOfLines={1}>
+              {ring.door_location || 'Unknown'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerDeleteBtn} onPress={() => onDelete(ring.id)} activeOpacity={0.7}>
+            <MaterialCommunityIcons name="trash-can-outline" size={16} color={Colors.error} />
+          </TouchableOpacity>
         </View>
-        <Text style={styles.time}>{formatRelative(ring.created_at)}</Text>
+        <Text style={styles.time}>{formatDateTime12h(ring.created_at)}</Text>
       </View>
 
       {/* Guest message */}
@@ -151,12 +175,6 @@ export function RingCard({
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Delete */}
-      <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(ring.id)}>
-        <MaterialCommunityIcons name="delete-outline" size={16} color={Colors.error} style={{ opacity: 0.6 }} />
-        <Text style={styles.deleteBtnText}>{deleteLabel}</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -189,20 +207,28 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
     gap: Spacing.sm,
   },
-  doorBadge: {
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    flex: 1,
+    minWidth: 0,
+  },
+  locationTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.accentLight,
     borderRadius: Radii.full,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
+    paddingVertical: 6,
     gap: 6,
+    minWidth: 0,
     flexShrink: 1,
   },
   doorText: {
@@ -211,10 +237,23 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     flexShrink: 1,
   },
+  headerDeleteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+  },
   time: {
     fontFamily: Typography.body,
     fontSize: Typography.sizeXs,
     color: Colors.textMuted,
+    marginTop: 6,
+    textAlign: 'right',
+    flexShrink: 0,
   },
   messageArea: {
     paddingHorizontal: Spacing.md,
@@ -330,22 +369,5 @@ const styles = StyleSheet.create({
     fontFamily: Typography.body,
     fontSize: Typography.sizeSm,
     color: Colors.textPrimary,
-  },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderTopWidth: 1,
-    borderTopColor: Colors.glassBorder,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  deleteBtnText: {
-    fontFamily: Typography.bodySemiBold,
-    fontSize: 10,
-    color: Colors.error,
-    opacity: 0.8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 });

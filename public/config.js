@@ -48,7 +48,7 @@
       darkMode: true,
       offlineMode: true,
       encryption: true,
-      guestLiveReplies: false
+      guestLiveReplies: true
     },
 
     /* Environment Detection */

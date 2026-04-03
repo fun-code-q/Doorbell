@@ -50,14 +50,18 @@ const Utils = {
 
 
   /* --- Toast Notifications --- */
-  showToast: function(message, type, duration) {
+  showToast: function(message, type, duration, options) {
     type = type || "info";
     duration = duration || 4000;
-    var container = document.getElementById("toast-container");
+    options = options || {};
+    var position = typeof options === "string" ? options : (options.position || "top-right");
+    var isTopLeft = position === "top-left";
+    var containerId = isTopLeft ? "toast-container-top-left" : "toast-container";
+    var container = document.getElementById(containerId);
     if (!container) {
       container = document.createElement("div");
-      container.id = "toast-container";
-      container.className = "toast-container";
+      container.id = containerId;
+      container.className = "toast-container" + (isTopLeft ? " toast-container--top-left" : "");
       container.setAttribute("aria-live", "polite");
       container.setAttribute("aria-atomic", "true");
       document.body.appendChild(container);

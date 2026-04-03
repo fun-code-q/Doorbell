@@ -16,6 +16,8 @@ import {
   Animated,
   Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -29,8 +31,28 @@ import { Colors, Radii, Spacing, Typography } from '../../constants/theme';
 
 const FILTER_OPTIONS = ['all', 'waiting', 'responded'] as const;
 type FilterOption = typeof FILTER_OPTIONS[number];
+const INCOMING_RING_DURATION_MS = 15000;
+const BASE_TAB_BAR_STYLE = {
+  backgroundColor: Colors.bgElevated,
+  borderTopColor: Colors.glassBorder,
+  borderTopWidth: 1,
+  height: Platform.OS === 'ios' ? 88 : 68,
+  paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+  paddingTop: 10,
+  elevation: 24,
+  ...(Platform.OS === 'web'
+    ? ({ boxShadow: '0 -4px 12px rgba(0,0,0,0.4)' } as const)
+    : ({
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      } as const)),
+};
 
 export default function DashboardScreen() {
+  const navigation = useNavigation<any>();
+  const params = useLocalSearchParams<{ incoming_ring_id?: string; house_id?: string }>();
   const { user } = useAuth();
   const { t } = useI18n();
   const dashboard = useSharedDashboard();
@@ -45,6 +67,10 @@ export default function DashboardScreen() {
   const [replyModalVisible, setReplyModalVisible] = useState(false);
   const [replyRingId, setReplyRingId] = useState<string | null>(null);
   const [customReplyText, setCustomReplyText] = useState('');
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [selectedLocationName, setSelectedLocationName] = useState('');
+  const [selectedLocationDescription, setSelectedLocationDescription] = useState('');
+  const handledIncomingRef = useRef<string | null>(null);
 
   // Load dashboard on mount
   useEffect(() => {
@@ -61,11 +87,35 @@ export default function DashboardScreen() {
       dashboard.setupRealtimeSubscription(dashboard.currentHouseId, (ring) => {
         // Trigger the "Incoming Call" UI
         setIncomingRing(ring);
-        dashboard.playNotificationSound(); // This will play the chime
       });
     }
     return () => dashboard.teardownRealtime();
   }, [dashboard.currentHouseId]);
+
+  // Hide bottom tab bar while incoming overlay is shown.
+  useEffect(() => {
+    const chain: any[] = [];
+    let current: any = navigation;
+
+    while (current) {
+      chain.push(current);
+      current = current.getParent?.();
+    }
+
+    chain.forEach((node) => {
+      node?.setOptions?.({
+        tabBarStyle: incomingRing
+          ? ({ ...BASE_TAB_BAR_STYLE, display: 'none' } as any)
+          : (BASE_TAB_BAR_STYLE as any),
+      });
+    });
+
+    return () => {
+      chain.forEach((node) => {
+        node?.setOptions?.({ tabBarStyle: BASE_TAB_BAR_STYLE as any });
+      });
+    };
+  }, [incomingRing, navigation]);
 
   // Pulse animation for the Call Screen
   useEffect(() => {
@@ -80,6 +130,25 @@ export default function DashboardScreen() {
       pulseAnim.setValue(1);
     }
   }, [incomingRing]);
+
+  // Keep ringing for the full 15s incoming window.
+  useEffect(() => {
+    if (!incomingRing) return;
+
+    dashboard.playNotificationSound();
+
+    const interval = setInterval(() => {
+      dashboard.playNotificationSound();
+    }, 1250);
+    const stopTimer = setTimeout(() => {
+      clearInterval(interval);
+    }, INCOMING_RING_DURATION_MS);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(stopTimer);
+    };
+  }, [incomingRing, dashboard.playNotificationSound]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -100,20 +169,22 @@ export default function DashboardScreen() {
     }
   }, [dashboard.rings, loadingMore]);
 
-  const handleDismissCall = () => {
+  const handleDismissCall = async () => {
+    if (incomingRing) {
+      await dashboard.updateRingStatus(incomingRing.id, 'dismissed', incomingRing.house_id);
+    }
     setIncomingRing(null);
   };
 
-  const handleAcceptCall = (ring: Ring) => {
+  const handleAcceptCall = async (ring: Ring) => {
+    await dashboard.updateRingStatus(ring.id, 'acknowledged', ring.house_id);
     setIncomingRing(null);
     // Scroll to the ring or just show toast
     showToast(`Opening request from ${ring.door_location}`, 'success');
   };
 
-  const stats = dashboard.computeStats(dashboard.rings);
   const filteredRings = dashboard.getFilteredRings(dashboard.rings);
   const uniqueDoors = dashboard.getUniqueDoors(dashboard.rings);
-
   const handleSendReply = async (ringId: string, message: string) => {
     const result = await dashboard.sendReply(ringId, message);
     if (result.success) {
@@ -130,22 +201,77 @@ export default function DashboardScreen() {
     setReplyModalVisible(true);
   };
 
+  const handleOpenLocation = (locationName: string) => {
+    const normalized = (locationName || '').trim();
+    const matchedDoor = dashboard.doorPoints.find(
+      (door) => (door.name || '').trim().toLowerCase() === normalized.toLowerCase()
+    );
+    const description = (matchedDoor?.description || '').trim();
+
+    setSelectedLocationName(normalized || 'Unknown');
+    setSelectedLocationDescription(description || 'No description');
+    setLocationModalVisible(true);
+  };
+
+  // Handle deep-link/open-from-notification payloads.
+  useEffect(() => {
+    const ringId = typeof params.incoming_ring_id === 'string' ? params.incoming_ring_id : '';
+    const houseId = typeof params.house_id === 'string' ? params.house_id : undefined;
+    if (!ringId) return;
+    if (!user?.id) return;
+    if (handledIncomingRef.current === ringId) return;
+    handledIncomingRef.current = ringId;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        if (houseId && dashboard.currentHouseId !== houseId) {
+          await dashboard.changeHouse(houseId);
+        }
+        const ring = await dashboard.getRingById(ringId, houseId);
+        if (!cancelled && ring) {
+          setIncomingRing(ring);
+        }
+      } catch (err) {
+        console.warn('Failed to open incoming ring from deep link:', err);
+      } finally {
+        if (!cancelled) {
+          router.setParams({ incoming_ring_id: undefined, house_id: undefined } as any);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user?.id,
+    params.incoming_ring_id,
+    params.house_id,
+    dashboard.currentHouseId,
+    dashboard.changeHouse,
+    dashboard.getRingById,
+  ]);
+
   const renderRing = ({ item }: { item: Ring }) => (
     <RingCard
       ring={item}
       onAck={(id) => handleSendReply(id, t('acknowledged'))}
       onComing={(id) => handleSendReply(id, t('coming'))}
       onCustomReply={(id) => handleOpenCustomReply(id)}
+      onOpenLocation={handleOpenLocation}
       onDelete={async (id) => {
-        await dashboard.deleteRing(id);
-        showToast(t('deleted'), 'success');
+        const deleted = await dashboard.deleteRing(id);
+        if (deleted) {
+          showToast(t('deleted'), 'success');
+        }
       }}
       onDecrypt={dashboard.decryptMessage}
       ackLabel={t('ack')}
       comingLabel={t('coming')}
       replyLabel={t('secure_reply')}
-      deleteLabel={t('delete')}
       signalInbound={t('signal_inbound')}
+      isUnread={!item.owner_reply && !dashboard.readRingIds[item.id]}
     />
   );
 
@@ -166,73 +292,90 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      <FlatList
-        data={filteredRings}
-        keyExtractor={(item) => item.id}
-        renderItem={renderRing}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.accent]} tintColor={Colors.accent} />
-        }
-        ListHeaderComponent={
-          <>
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}><StatCard value={dashboard.rings.filter(r => !r.owner_reply).length} label="Missed" icon="phone-missed" /></View>
-              <View style={styles.statItem}><StatCard value={dashboard.rings.filter(r => !!r.owner_reply).length} label="Answered" icon="check-circle-outline" /></View>
-              <View style={styles.statItem}><StatCard value={uniqueDoors.length} label="No. of Doors" icon="door-open" /></View>
-              <View style={styles.statItem}><StatCard value={dashboard.doorPoints.filter(dp => !dp.is_active).length} label="Paused" icon="pause-circle-outline" /></View>
-            </View>
+      <View style={styles.fixedHeader}>
+        <View style={[styles.statsGrid, styles.statsGridTwoByTwo]}>
+          <View style={styles.statItem}>
+            <StatCard value={dashboard.rings.filter((r) => !r.owner_reply).length} label="Missed" icon="phone-missed" />
+          </View>
+          <View style={styles.statItem}>
+            <StatCard value={dashboard.rings.filter((r) => !!r.owner_reply).length} label="Answered" icon="check-circle-outline" />
+          </View>
+          <View style={styles.statItem}>
+            <StatCard value={dashboard.doorPoints.length} label="Total Doors" icon="door-open" />
+          </View>
+          <View style={styles.statItem}>
+            <StatCard value={dashboard.doorPoints.filter((dp) => !dp.is_active).length} label="Paused" icon="pause-circle-outline" />
+          </View>
+        </View>
 
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t('activity_log')}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              dashboard.markAllRead();
+              showToast(t('mark_all_read'), 'success');
+            }}
+          >
+            <Text style={styles.sectionAction}>{t('mark_all_read')}</Text>
+          </TouchableOpacity>
+        </View>
 
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t('activity_log')}</Text>
-              <TouchableOpacity onPress={() => { dashboard.markAllRead(); showToast('Marked all as read', 'success'); }}>
-                <Text style={styles.sectionAction}>{t('mark_all_read')}</Text>
+        <View style={styles.filterSearchRow}>
+          <View style={styles.filterRow}>
+            {FILTER_OPTIONS.map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={[styles.filterPill, dashboard.currentFilter === f && styles.filterPillActive]}
+                onPress={() => dashboard.setCurrentFilter(f)}
+              >
+                <Text style={[styles.filterPillText, dashboard.currentFilter === f && styles.filterPillTextActive]}>{t(f)}</Text>
               </TouchableOpacity>
-            </View>
+            ))}
+          </View>
 
+          <View style={styles.searchInlineWrap}>
+            <MaterialCommunityIcons name="magnify" size={16} color={Colors.textMuted} />
             <TextInput
-              style={styles.searchInput}
+              style={styles.searchInlineInput}
               value={dashboard.searchQuery}
               onChangeText={dashboard.setSearchQuery}
               placeholder={t('search_rings')}
               placeholderTextColor={Colors.textMuted}
             />
+          </View>
+        </View>
 
-            <View style={styles.filterRow}>
-              {FILTER_OPTIONS.map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.filterPill, dashboard.currentFilter === f && styles.filterPillActive]}
-                  onPress={() => dashboard.setCurrentFilter(f)}
-                >
-                  <Text style={[styles.filterPillText, dashboard.currentFilter === f && styles.filterPillTextActive]}>{t(f)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+        {uniqueDoors.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.doorFilterRow}>
+            <TouchableOpacity
+              style={[styles.filterPill, dashboard.currentDoorFilter === 'all' && styles.filterPillActive]}
+              onPress={() => dashboard.setCurrentDoorFilter('all')}
+            >
+              <Text style={[styles.filterPillText, dashboard.currentDoorFilter === 'all' && styles.filterPillTextActive]}>All Doors</Text>
+            </TouchableOpacity>
+            {uniqueDoors.map((door) => (
+              <TouchableOpacity
+                key={door}
+                style={[styles.filterPill, dashboard.currentDoorFilter === door && styles.filterPillActive]}
+                onPress={() => dashboard.setCurrentDoorFilter(door)}
+              >
+                <Text style={[styles.filterPillText, dashboard.currentDoorFilter === door && styles.filterPillTextActive]}>{door}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
 
-            {uniqueDoors.length > 1 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.doorFilterRow}>
-                <TouchableOpacity
-                  style={[styles.filterPill, dashboard.currentDoorFilter === 'all' && styles.filterPillActive]}
-                  onPress={() => dashboard.setCurrentDoorFilter('all')}
-                >
-                  <Text style={[styles.filterPillText, dashboard.currentDoorFilter === 'all' && styles.filterPillTextActive]}>All Doors</Text>
-                </TouchableOpacity>
-                {uniqueDoors.map((door) => (
-                  <TouchableOpacity
-                    key={door}
-                    style={[styles.filterPill, dashboard.currentDoorFilter === door && styles.filterPillActive]}
-                    onPress={() => dashboard.setCurrentDoorFilter(door)}
-                  >
-                    <Text style={[styles.filterPillText, dashboard.currentDoorFilter === door && styles.filterPillTextActive]}>{door}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </>
+      <FlatList
+        style={styles.ringsList}
+        data={filteredRings}
+        keyExtractor={(item) => item.id}
+        renderItem={renderRing}
+        contentContainerStyle={styles.ringsListContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.accent]} tintColor={Colors.accent} />
         }
+        ListEmptyComponent={<Text style={styles.emptyText}>{t('monitoring')}</Text>}
         ListFooterComponent={
           filteredRings.length >= 10 ? (
             <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore} disabled={loadingMore}>
@@ -243,8 +386,15 @@ export default function DashboardScreen() {
       />
 
       {/* Incoming Call Overlay */}
-      <Modal visible={!!incomingRing} transparent animationType="fade">
-        <View style={styles.callOverlay}>
+      <Modal visible={!!incomingRing} animationType="fade" presentationStyle="fullScreen" statusBarTranslucent={false}>
+        <View
+          style={[
+            styles.callOverlay,
+            Platform.OS === 'web'
+              ? ({ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0 } as any)
+              : null,
+          ]}
+        >
           <SafeAreaView style={styles.callContent}>
             <View style={styles.callHeader}>
               <Animated.View style={[styles.callIconContainer, { transform: [{ scale: pulseAnim }] }]}>
@@ -260,14 +410,24 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.callFooter}>
-              <TouchableOpacity style={[styles.callBtn, styles.declineBtn]} onPress={handleDismissCall}>
+              <TouchableOpacity
+                style={[styles.callBtn, styles.declineBtn]}
+                onPress={() => {
+                  void handleDismissCall();
+                }}
+              >
                 <View style={styles.btnIconBg}>
                   <MaterialCommunityIcons name="phone-hangup" size={32} color={Colors.textInverse} />
                 </View>
                 <Text style={styles.btnLabel}>IGNORE</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.callBtn, styles.acceptBtn]} onPress={() => handleAcceptCall(incomingRing!)}>
+              <TouchableOpacity
+                style={[styles.callBtn, styles.acceptBtn]}
+                onPress={() => {
+                  void handleAcceptCall(incomingRing!);
+                }}
+              >
                 <View style={[styles.btnIconBg, { backgroundColor: Colors.accent }]}>
                   <MaterialCommunityIcons name="phone-check" size={32} color={Colors.textInverse} />
                 </View>
@@ -312,41 +472,118 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Location Details Modal */}
+      <Modal
+        visible={locationModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLocationModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.locationModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Location Details</Text>
+              <TouchableOpacity onPress={() => setLocationModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.locationFieldCard}>
+              <Text style={styles.locationFieldLabel}>Name</Text>
+              <Text style={styles.locationFieldValue}>{selectedLocationName}</Text>
+            </View>
+
+            <View style={styles.locationFieldCard}>
+              <Text style={styles.locationFieldLabel}>Description</Text>
+              <Text style={styles.locationFieldValue}>{selectedLocationDescription}</Text>
+            </View>
+
+            <TouchableOpacity style={[styles.primaryBtn, { width: '100%' }]} onPress={() => setLocationModalVisible(false)}>
+              <Text style={styles.primaryBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgObsidian },
-  listContent: { padding: Spacing.md, paddingBottom: Spacing.xxl },
+  fixedHeader: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.bgObsidian,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.glassBorder,
+  },
+  ringsList: { flex: 1 },
+  ringsListContent: { padding: Spacing.md, paddingBottom: Spacing.xxl },
   houseSwitcher: { flexDirection: 'row', padding: Spacing.sm, gap: 8, backgroundColor: Colors.bgElevated, borderBottomWidth: 1, borderBottomColor: Colors.glassBorder },
   houseBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: Radii.full, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder },
   houseBtnActive: { backgroundColor: Colors.accentLight, borderColor: Colors.accent },
   houseBtnText: { fontFamily: Typography.bodySemiBold, fontSize: 12, color: Colors.textMuted },
   houseBtnTextActive: { color: Colors.accent },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: Spacing.md },
+  statsGrid: { marginBottom: Spacing.sm },
+  statsGridTwoByTwo: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   statItem: { width: '48%', marginBottom: Spacing.sm },
-
-
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: Spacing.sm },
   sectionTitle: { fontFamily: Typography.headingBold, fontSize: Typography.sizeLg, color: Colors.accent },
-  sectionAction: { fontFamily: Typography.bodySemiBold, fontSize: 12, color: Colors.textMuted },
-  searchInput: { backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radii.md, padding: 12, color: Colors.textPrimary, marginBottom: 12 },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  doorFilterRow: { marginBottom: 12 },
+  sectionAction: { fontFamily: Typography.bodySemiBold, fontSize: 12, color: Colors.accent },
+  filterSearchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  filterRow: { flexDirection: 'row', gap: 8 },
+  searchInlineWrap: {
+    flex: 1,
+    minHeight: 38,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    borderRadius: Radii.md,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  searchInlineInput: { flex: 1, color: Colors.textPrimary, fontFamily: Typography.body, fontSize: Typography.sizeSm, paddingVertical: 8 },
+  doorFilterRow: { marginBottom: 8 },
   filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radii.full, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, marginRight: 8 },
   filterPillActive: { backgroundColor: Colors.accent },
   filterPillText: { fontFamily: Typography.bodySemiBold, fontSize: 12, color: Colors.textMuted, textTransform: 'capitalize' },
   filterPillTextActive: { color: Colors.textInverse },
   loadMoreBtn: { padding: 16, alignItems: 'center', backgroundColor: Colors.glass, borderRadius: Radii.md, marginTop: 16 },
   loadMoreText: { fontFamily: Typography.headingBold, color: Colors.textSecondary },
-  emptyText: { textAlign: 'center', color: Colors.textMuted, padding: 40 },
+  emptyText: { textAlign: 'center', color: Colors.textMuted, padding: 40, marginTop: Spacing.lg },
   
   // Modal & Input Shared Config (Inherited mostly from Doors screen aesthetics)
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
   modalContent: { backgroundColor: Colors.bgElevated, borderRadius: Radii.xl, padding: Spacing.xl, width: '100%', borderWidth: 1, borderColor: Colors.glassBorder },
+  locationModalContent: { backgroundColor: Colors.bgElevated, borderRadius: Radii.xl, padding: Spacing.xl, width: '100%', borderWidth: 1, borderColor: Colors.glassBorder, gap: Spacing.md },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: Spacing.lg },
   modalTitle: { fontFamily: Typography.headingBold, fontSize: Typography.sizeLg, color: Colors.accent },
+  locationFieldCard: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  locationFieldLabel: {
+    fontFamily: Typography.headingBold,
+    fontSize: 10,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  locationFieldValue: {
+    fontFamily: Typography.body,
+    fontSize: Typography.sizeMd,
+    color: Colors.textPrimary,
+    lineHeight: 22,
+  },
   formLabel: { fontFamily: Typography.headingBold, fontSize: 10, color: Colors.textMuted, letterSpacing: 1, marginBottom: 8 },
   modalInput: {
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -364,7 +601,12 @@ const styles = StyleSheet.create({
   primaryBtnText: { fontFamily: Typography.headingBold, fontSize: 14, color: Colors.textInverse },
 
   // Call Overlay styles
-  callOverlay: { flex: 1, backgroundColor: Colors.bgObsidian },
+  callOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.bgObsidian,
+    zIndex: 9999,
+    elevation: 9999,
+  },
   callContent: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingVertical: 60 },
   callHeader: { alignItems: 'center', width: '100%', paddingHorizontal: 30 },
   callIconContainer: { marginBottom: 30, backgroundColor: Colors.glass, padding: 30, borderRadius: 100, borderWidth: 1, borderColor: Colors.accent },

@@ -427,6 +427,32 @@ SECURITY DEFINER
 SET search_path TO public, pg_temp
 SET row_security = off;
 
+DROP FUNCTION IF EXISTS public.get_guest_ring_reply_by_token(UUID, TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION public.get_guest_ring_reply_by_token(
+  p_ring_id UUID,
+  p_qr_token TEXT
+)
+RETURNS TABLE(owner_reply TEXT, status TEXT, replied_at TIMESTAMPTZ) AS $$
+BEGIN
+  IF p_ring_id IS NULL OR p_qr_token IS NULL OR trim(p_qr_token) = '' THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT r.owner_reply, r.status, r.replied_at
+  FROM public.doorbell_rings r
+  JOIN public.door_points dp ON dp.id = r.door_point_id
+  WHERE r.id = p_ring_id
+    AND dp.qr_token = p_qr_token
+  LIMIT 1;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off;
+
+GRANT EXECUTE ON FUNCTION public.get_guest_ring_reply_by_token(UUID, TEXT) TO anon, authenticated;
+
 -- 6. ROW LEVEL SECURITY (Flattened Subqueries)
 ALTER TABLE public.houses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.house_members ENABLE ROW LEVEL SECURITY;
@@ -548,3 +574,174 @@ FOR DELETE TO authenticated
 USING (
   public.is_house_owner(house_id)
 );
+
+-- 9. PUSH NOTIFICATIONS (Expo + Edge Function Webhook)
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  house_id UUID REFERENCES public.houses(id) ON DELETE CASCADE,
+  expo_push_token TEXT NOT NULL UNIQUE,
+  platform TEXT NOT NULL DEFAULT 'unknown',
+  app_version TEXT,
+  device_label TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  last_seen_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
+  ON public.push_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_house_id
+  ON public.push_subscriptions(house_id);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_is_active
+  ON public.push_subscriptions(is_active);
+
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS push_subscriptions_select_self ON public.push_subscriptions;
+CREATE POLICY push_subscriptions_select_self
+ON public.push_subscriptions
+FOR SELECT TO authenticated
+USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS push_subscriptions_insert_self ON public.push_subscriptions;
+CREATE POLICY push_subscriptions_insert_self
+ON public.push_subscriptions
+FOR INSERT TO authenticated
+WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS push_subscriptions_update_self ON public.push_subscriptions;
+CREATE POLICY push_subscriptions_update_self
+ON public.push_subscriptions
+FOR UPDATE TO authenticated
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS push_subscriptions_delete_self ON public.push_subscriptions;
+CREATE POLICY push_subscriptions_delete_self
+ON public.push_subscriptions
+FOR DELETE TO authenticated
+USING (user_id = auth.uid());
+
+DROP FUNCTION IF EXISTS public.register_push_token(TEXT, UUID, TEXT, TEXT, TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION public.register_push_token(
+  p_token TEXT,
+  p_house_id UUID DEFAULT NULL,
+  p_platform TEXT DEFAULT 'unknown',
+  p_app_version TEXT DEFAULT NULL,
+  p_device_label TEXT DEFAULT NULL
+)
+RETURNS TABLE(id UUID, expo_push_token TEXT, is_active BOOLEAN) AS $$
+DECLARE
+  v_user UUID := auth.uid();
+BEGIN
+  IF v_user IS NULL THEN
+    RAISE EXCEPTION 'Auth required';
+  END IF;
+
+  IF p_token IS NULL OR trim(p_token) = '' THEN
+    RAISE EXCEPTION 'Push token is required';
+  END IF;
+
+  IF p_house_id IS NOT NULL AND NOT public.is_house_member(p_house_id) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  INSERT INTO public.push_subscriptions (
+    user_id,
+    house_id,
+    expo_push_token,
+    platform,
+    app_version,
+    device_label,
+    is_active,
+    last_seen_at,
+    updated_at
+  )
+  VALUES (
+    v_user,
+    p_house_id,
+    trim(p_token),
+    lower(trim(coalesce(p_platform, 'unknown'))),
+    nullif(trim(coalesce(p_app_version, '')), ''),
+    nullif(trim(coalesce(p_device_label, '')), ''),
+    true,
+    timezone('utc'::text, now()),
+    timezone('utc'::text, now())
+  )
+  ON CONFLICT (expo_push_token) DO UPDATE
+  SET
+    user_id = EXCLUDED.user_id,
+    house_id = COALESCE(EXCLUDED.house_id, public.push_subscriptions.house_id),
+    platform = EXCLUDED.platform,
+    app_version = EXCLUDED.app_version,
+    device_label = EXCLUDED.device_label,
+    is_active = true,
+    last_seen_at = timezone('utc'::text, now()),
+    updated_at = timezone('utc'::text, now())
+  RETURNING push_subscriptions.id, push_subscriptions.expo_push_token, push_subscriptions.is_active
+  INTO id, expo_push_token, is_active;
+
+  RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, auth, pg_temp
+SET row_security = off;
+
+DROP FUNCTION IF EXISTS public.deactivate_push_token(TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION public.deactivate_push_token(p_token TEXT)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_user UUID := auth.uid();
+BEGIN
+  IF v_user IS NULL THEN
+    RAISE EXCEPTION 'Auth required';
+  END IF;
+
+  UPDATE public.push_subscriptions
+  SET
+    is_active = false,
+    updated_at = timezone('utc'::text, now())
+  WHERE user_id = v_user
+    AND expo_push_token = trim(coalesce(p_token, ''));
+
+  RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, auth, pg_temp
+SET row_security = off;
+
+DROP FUNCTION IF EXISTS public.notify_ring_push_webhook() CASCADE;
+CREATE OR REPLACE FUNCTION public.notify_ring_push_webhook()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM net.http_post(
+    url := 'https://ebvotxcyfbzzoisgkdui.supabase.co/functions/v1/push-ring-notification',
+    headers := jsonb_build_object('Content-Type', 'application/json'),
+    body := jsonb_build_object(
+      'ring_id', NEW.id,
+      'house_id', NEW.house_id,
+      'door_location', NEW.door_location,
+      'created_at', NEW.created_at
+    )
+  );
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'notify_ring_push_webhook failed: %', SQLERRM;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off;
+
+DROP TRIGGER IF EXISTS trg_notify_ring_push_webhook ON public.doorbell_rings;
+CREATE TRIGGER trg_notify_ring_push_webhook
+AFTER INSERT ON public.doorbell_rings
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_ring_push_webhook();

@@ -13,22 +13,37 @@
   var messageInput = document.getElementById("message");
   var replyDrawer = document.getElementById("reply-drawer");
   var replyText = document.getElementById("reply-text");
+  var replyTime = document.getElementById("reply-timestamp");
+  var locationName = document.getElementById("location-name");
   var offlineIndicator = document.getElementById("offline-indicator");
   var timestampDisplay = document.getElementById("timestamp-display");
   var charCounter = document.getElementById("char-counter");
-  var scamWarning = document.getElementById("scam-warning");
   var encryptionIndicator = document.getElementById("encryption-indicator");
   
   var actionBar = document.getElementById("action-bar");
   var inlineError = document.getElementById("inline-error");
   var inlineErrorText = document.getElementById("error-text");
   var inlineSuccess = document.getElementById("inline-success");
+  var ringContainer = document.getElementById("ring-container");
+  var ringBtnText = document.getElementById("ring-btn-text");
 
   var ringSent = false;
-  var lastRingTime = 0;
   var supabaseClient = null;
   var qrToken = Utils.getQueryParam("t");
   var resolvedDoor = null;
+  var ringResetTimer = null;
+  var replyPollTimer = null;
+  var replyPollCount = 0;
+  var RING_ACTIVE_MS = 15000;
+  var REPLY_POLL_INTERVAL_MS = 2000;
+  var REPLY_POLL_MAX = 300;
+  var encryptionReady = !!(
+    CONFIG.FEATURE_FLAGS &&
+    CONFIG.FEATURE_FLAGS.encryption &&
+    Crypto.isSupported() &&
+    CONFIG.ENCRYPTION_PASSPHRASE &&
+    !/^REPLACE_WITH_/i.test(String(CONFIG.ENCRYPTION_PASSPHRASE).trim())
+  );
 
   I18n.init();
 
@@ -42,7 +57,7 @@
 
   ringBtn.disabled = true;
 
-  if (CONFIG.FEATURE_FLAGS.encryption && Crypto.isSupported()) {
+  if (encryptionReady) {
     encryptionIndicator.style.display = "inline-flex";
   }
 
@@ -51,6 +66,115 @@
     if (actionBar) actionBar.style.display = "none";
     if (inlineError) inlineError.classList.add("visible");
     ringBtn.disabled = true;
+  }
+
+  function resetRingUiState() {
+    if (ringResetTimer) {
+      clearTimeout(ringResetTimer);
+      ringResetTimer = null;
+    }
+    ringSent = false;
+    if (ringContainer) ringContainer.classList.remove("is-ringing");
+    if (ringBtnText) {
+      ringBtnText.setAttribute("data-i18n", "ring_button");
+      I18n.apply();
+    }
+    if (resolvedDoor && actionBar && actionBar.style.display !== "none") {
+      ringBtn.disabled = false;
+    }
+  }
+
+  function beginRingUiState() {
+    ringSent = true;
+    ringBtn.disabled = true;
+    if (ringContainer) ringContainer.classList.add("is-ringing");
+    if (ringBtnText) {
+      ringBtnText.setAttribute("data-i18n", "ring_button_sending");
+      I18n.apply();
+    }
+    if (inlineSuccess) inlineSuccess.classList.remove("visible");
+  }
+
+  function scheduleRingUiReset() {
+    if (ringResetTimer) clearTimeout(ringResetTimer);
+    ringResetTimer = setTimeout(function() {
+      resetRingUiState();
+    }, RING_ACTIVE_MS);
+  }
+
+  function stopReplyWatcher() {
+    if (replyPollTimer) {
+      clearInterval(replyPollTimer);
+      replyPollTimer = null;
+    }
+    replyPollCount = 0;
+  }
+
+  function showOwnerReply(reply) {
+    if (!reply) return;
+    replyDrawer.classList.add("visible");
+    replyText.textContent = reply;
+    if (replyTime) {
+      replyTime.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    Utils.vibrate([100, 50, 100, 50, 100]);
+    playResponseChime();
+  }
+
+  async function pollReplyByToken(ringId) {
+    if (!ringId || !qrToken) return { terminal: false };
+    var replyResult = await supabaseClient.rpc("get_guest_ring_reply_by_token", {
+      p_ring_id: ringId,
+      p_qr_token: qrToken
+    });
+    if (replyResult.error) {
+      if (replyResult.error.code !== "PGRST301") {
+        console.warn("Reply polling error:", replyResult.error);
+      }
+      return { terminal: false };
+    }
+    var row = Array.isArray(replyResult.data) ? replyResult.data[0] : replyResult.data;
+    if (row && row.owner_reply && String(row.owner_reply).trim() !== "") {
+      showOwnerReply(String(row.owner_reply).trim());
+      return { terminal: true };
+    }
+    if (row && row.status) {
+      var status = String(row.status).toLowerCase();
+      if (status === "dismissed" || status === "acknowledged" || status === "responded") {
+        return { terminal: true };
+      }
+    }
+    return { terminal: false };
+  }
+
+  function startReplyWatcher(ringId) {
+    stopReplyWatcher();
+    pollReplyByToken(ringId).then(function(result) {
+      if (result && result.terminal) {
+        stopReplyWatcher();
+        resetRingUiState();
+      }
+    }).catch(function(err) {
+      console.warn("Initial reply poll failed:", err);
+    });
+
+    replyPollTimer = setInterval(function() {
+      replyPollCount += 1;
+      if (replyPollCount > REPLY_POLL_MAX) {
+        stopReplyWatcher();
+        return;
+      }
+      pollReplyByToken(ringId)
+        .then(function(result) {
+          if (result && result.terminal) {
+            stopReplyWatcher();
+            resetRingUiState();
+          }
+        })
+        .catch(function(err) {
+          console.warn("Reply poll tick failed:", err);
+        });
+    }, REPLY_POLL_INTERVAL_MS);
   }
 
    async function resolveQrToken() {
@@ -86,6 +210,9 @@
          return;
        }
        resolvedDoor = row;
+       if (locationName && resolvedDoor.door_location) {
+         locationName.textContent = resolvedDoor.door_location;
+       }
        ringBtn.disabled = false;
      } catch (err) {
        console.error("QR resolve failed:", err);
@@ -146,10 +273,8 @@
     else if (len > MSG_MAX_LENGTH * 0.7) charCounter.classList.add("warning");
 
     if (containsLinks(val) || containsSuspicious(val)) {
-      scamWarning.classList.add("visible");
-      messageInput.style.borderColor = "var(--warning)";
+      messageInput.style.borderColor = "var(--error)";
     } else {
-      scamWarning.classList.remove("visible");
       messageInput.style.borderColor = "";
     }
   });
@@ -160,21 +285,7 @@
       Utils.showToast(I18n.t("status_offline"), "warning");
       return;
     }
-
-    var now = Date.now();
-    if (now - lastRingTime < CONFIG.RATE_LIMIT_WINDOW) {
-      Utils.vibrate([100, 50, 100]);
-      Utils.showToast(I18n.t("status_rate_limited"), "warning");
-      return;
-    }
-
-    ringSent = true;
-    lastRingTime = now;
-    ringBtn.disabled = true;
-    
-    // UI Feedback: Start Ringing Animation
-    var ringContainer = document.getElementById("ring-container");
-    if (ringContainer) ringContainer.classList.add("is-ringing");
+    beginRingUiState();
     const hideLoading = Utils.showLoading(I18n.t("ringing"));
 
 
@@ -186,7 +297,7 @@
       var messageEncrypted = false;
       if (messageText) {
         messageText = sanitizeInput(messageText);
-        if (CONFIG.FEATURE_FLAGS.encryption && Crypto.isSupported()) {
+        if (encryptionReady) {
           try {
             messageText = await Crypto.encryptText(messageText, CONFIG.ENCRYPTION_PASSPHRASE);
             messageEncrypted = true;
@@ -228,65 +339,38 @@
        }
 
       
-      // UI Feedback: Success Chime & Stop Animation
+      // UI Feedback: Success
       hideLoading();
-      if (ringContainer) ringContainer.classList.remove("is-ringing");
       playGuestChime();
-      
-      if (actionBar) actionBar.style.display = "none";
-      if (inlineSuccess) inlineSuccess.classList.add("visible");
-      Utils.vibrate([50, 50, 100]);
 
+      if (inlineSuccess) {
+        inlineSuccess.classList.add("visible");
+        setTimeout(function() {
+          inlineSuccess.classList.remove("visible");
+        }, 3000);
+      }
+
+      Utils.showToast(I18n.t("ring_button_sent"), "success", 3500, { position: "top-left" });
+      Utils.vibrate([50, 50, 100]);
+      scheduleRingUiReset();
 
       var liveRepliesEnabled = !!(CONFIG.FEATURE_FLAGS && CONFIG.FEATURE_FLAGS.guestLiveReplies);
       if (liveRepliesEnabled) {
-        try {
-          supabaseClient
-            .channel("reply_" + ringData.id)
-            .on(
-              "postgres_changes",
-              {
-                event: "UPDATE",
-                schema: "public",
-                table: "doorbell_rings",
-                filter: "id=eq." + ringData.id
-              },
-              function(payload) {
-                if (payload.new.owner_reply) {
-                  replyDrawer.style.display = "block";
-                  replyText.textContent = payload.new.owner_reply;
-                  Utils.vibrate([100, 50, 100, 50, 100]);
-                  playResponseChime();
-                }
-              }
-            )
-            .subscribe(function(status, err) {
-              if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-                console.warn("Guest reply realtime unavailable:", err || status);
-              }
-            });
-        } catch (realtimeErr) {
-          console.warn("Guest reply realtime init failed:", realtimeErr);
-        }
+        startReplyWatcher(ringData.id);
       }
 
       timestampDisplay.textContent = Utils.formatDate(new Date());
      } catch (err) {
        hideLoading();
-       if (ringContainer) ringContainer.classList.remove("is-ringing");
+       resetRingUiState();
        console.error("Ring error:", err);
-       setInvalidQrState(err.message || I18n.t("error_generic"));
-       ringSent = false;
-       resolvedDoor = null;
-       // Re-enable button on error
-       if (ringBtn) ringBtn.disabled = false;
-     }
+       Utils.showToast(err.message || I18n.t("error_generic"), "error");
+      }
   });
 
   // Dropdown Toggle Logic
   var toggleBtn = document.getElementById("message-toggle-btn");
   var drawer = document.getElementById("message-drawer");
-  var ringBtnText = document.getElementById("ring-btn-text");
 
   if (toggleBtn && drawer) {
     toggleBtn.addEventListener("click", function() {
@@ -323,9 +407,10 @@
 
   document.querySelectorAll('[data-action="retry-capture"]').forEach(function(el) {
     el.addEventListener("click", function() {
+      stopReplyWatcher();
+      resetRingUiState();
       if (inlineError) inlineError.classList.remove("visible");
       if (actionBar) actionBar.style.display = "flex";
-      ringSent = false;
       resolvedDoor = null;
       ringBtn.disabled = true;
       resolveQrToken();
@@ -352,6 +437,11 @@
       if (e.target === infoModal) infoModal.classList.remove("visible");
     });
   }
+
+  window.addEventListener("beforeunload", function() {
+    stopReplyWatcher();
+    resetRingUiState();
+  });
 
   setInterval(function() {
     if (timestampDisplay.textContent) {

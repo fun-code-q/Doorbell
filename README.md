@@ -67,6 +67,20 @@ A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It 
 ### 1. Database Setup
 1. Open your Supabase SQL Editor.
 2. Run the `supabase-final-master.sql` script to initialize the schema, RLS policies, and RPCs.
+3. For push notifications, also deploy the Edge Function and webhook pipeline:
+   - SQL quick patch: `supabase-hotfix-push-pipeline.sql`
+   - Function path: `supabase/functions/push-ring-notification`
+   - Deploy command:
+     ```bash
+     supabase functions deploy push-ring-notification --no-verify-jwt
+     ```
+   - Required function secrets:
+     ```bash
+     supabase secrets set SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+     supabase secrets set SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
+     # Optional for secured Expo push API usage:
+     supabase secrets set EXPO_ACCESS_TOKEN=YOUR_EXPO_ACCESS_TOKEN
+     ```
 
 ### 2. Web Application (Guest/Web Owner)
 1. Install dependencies:
@@ -96,7 +110,9 @@ A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It 
    EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    ```
-3. Start the Expo development server:
+3. Build/deploy with a development build or production build for full push behavior
+   (Expo Go has platform limitations, especially Android).
+4. Start the Expo development server:
    ```bash
    npx expo start
    ```

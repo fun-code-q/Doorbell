@@ -7,45 +7,86 @@ interface StatCardProps {
   value: string | number;
   label: string;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
+  compact?: boolean;
 }
 
-export function StatCard({ value, label, icon }: StatCardProps) {
+export function StatCard({ value, label, icon, compact = false }: StatCardProps) {
   return (
-    <View style={styles.card}>
-      {icon && <MaterialCommunityIcons name={icon} size={20} color={Colors.accent} style={{ marginBottom: 4 }} />}
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.card, compact && styles.cardCompact]}>
+      <View style={styles.headerRow}>
+        {icon && (
+          <View style={[styles.iconWrap, compact && styles.iconWrapCompact]}>
+            <MaterialCommunityIcons name={icon} size={compact ? 14 : 16} color={Colors.accent} />
+          </View>
+        )}
+        <Text style={[styles.label, compact && styles.labelCompact]} numberOfLines={2}>
+          {label}
+        </Text>
+      </View>
+      <Text style={[styles.value, compact && styles.valueCompact]}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
     backgroundColor: Colors.glass,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
     borderRadius: Radii.lg,
-    padding: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 110,
+    justifyContent: 'space-between',
+  },
+  cardCompact: {
+    minHeight: 94,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  iconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 140,
-    marginBottom: Spacing.sm,
+    backgroundColor: Colors.accentLight,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+  },
+  iconWrapCompact: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
   value: {
     fontFamily: Typography.headingBold,
-    fontSize: Typography.sizeXxl,
+    fontSize: 30,
     fontWeight: '800',
     color: Colors.accent,
-    lineHeight: 36,
+    lineHeight: 34,
+    marginTop: 4,
+  },
+  valueCompact: {
+    fontSize: 24,
+    lineHeight: 28,
   },
   label: {
-    fontFamily: Typography.body,
-    fontSize: Typography.sizeXs,
+    flex: 1,
+    fontFamily: Typography.bodySemiBold,
+    fontSize: 10,
     color: Colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: Spacing.xs,
-    textAlign: 'center',
+    letterSpacing: 0.9,
+  },
+  labelCompact: {
+    fontSize: 9,
+    letterSpacing: 0.7,
   },
 });

@@ -177,11 +177,8 @@ export default function DoorsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-          
-
-          {/* New Door Addition */}
-          <View style={styles.card}>
+        <View style={styles.fixedAddSection}>
+          <View style={[styles.card, styles.addCard]}>
             <Text style={styles.cardTitle}>Add New Location</Text>
             <View style={styles.inputGroup}>
               <MaterialCommunityIcons name="pencil-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
@@ -208,8 +205,9 @@ export default function DoorsScreen() {
               <Text style={styles.primaryBtnText}>Add</Text>
             </TouchableOpacity>
           </View>
+        </View>
 
-          {/* List of Doors */}
+        <ScrollView style={styles.locationsScroll} contentContainerStyle={styles.locationsContainer} showsVerticalScrollIndicator={false}>
           {dashboard.doorPoints.map((dp) => (
             <View key={dp.id} style={[styles.doorCard, !dp.is_active && styles.doorCardInactive]}>
               <View style={styles.doorHeader}>
@@ -253,6 +251,10 @@ export default function DoorsScreen() {
               </View>
             </View>
           ))}
+
+          {dashboard.doorPoints.length === 0 ? (
+            <Text style={styles.emptyText}>No locations yet. Add your first location above.</Text>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -423,7 +425,16 @@ export default function DoorsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgObsidian },
   flex: { flex: 1 },
-  container: { padding: Spacing.md, paddingBottom: Spacing.xxl },
+  fixedAddSection: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.bgObsidian,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.glassBorder,
+  },
+  locationsScroll: { flex: 1 },
+  locationsContainer: { padding: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xxl },
   sectionTitle: {
     fontFamily: Typography.headingBold,
     fontSize: Typography.sizeXl,
@@ -439,6 +450,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.lg,
   },
+  addCard: { marginBottom: 0 },
   cardTitle: {
     fontFamily: Typography.bodySemiBold,
     fontSize: Typography.sizeMd,
@@ -624,5 +636,12 @@ const styles = StyleSheet.create({
     color: Colors.textMuted, 
     textAlign: 'center',
     marginTop: 10
-  }
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: Colors.textMuted,
+    fontFamily: Typography.body,
+    fontSize: Typography.sizeSm,
+    paddingVertical: Spacing.lg,
+  },
 });

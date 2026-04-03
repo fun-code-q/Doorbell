@@ -2,7 +2,7 @@
 // Ports app.js business logic — ALL Supabase queries, state, and filtering unchanged
 // Only the DOM/browser APIs are replaced with React Native equivalents
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Alert, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -10,6 +10,7 @@ import { useAudioPlayer } from 'expo-audio';
 import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { Storage } from '../lib/storage';
+import { CONFIG } from '../lib/config';
 import { translate } from './useI18n';
 import { decryptText } from '../lib/crypto';
 import { getStoredPassphrase } from './useAuth';
@@ -98,6 +99,7 @@ export function useOwnerDashboard() {
   const [currentHouseId, setCurrentHouseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [readRingIds, setReadRingIds] = useState<Record<string, boolean>>({});
   const [floodWarning, setFloodWarning] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<'all' | 'waiting' | 'responded'>('all');
   const [currentDoorFilter, setCurrentDoorFilter] = useState('all');
@@ -111,6 +113,11 @@ export function useOwnerDashboard() {
   const PAGE_SIZE = 10;
   const FLOOD_THRESHOLD = 5;
   const FLOOD_WINDOW = 60000;
+
+  useEffect(() => {
+    const unread = rings.filter((r) => (!r.owner_reply || r.owner_reply === '') && !readRingIds[r.id]).length;
+    setUnreadCount(unread);
+  }, [rings, readRingIds]);
 
   // -----------------------------------------------------------------------
   // House management (unchanged logic from app.js)
@@ -305,8 +312,23 @@ export function useOwnerDashboard() {
       }
       const data: Ring[] = result.data || [];
       setRings(data);
-      const unread = data.filter((r) => !r.owner_reply || r.owner_reply === '').length;
-      setUnreadCount(unread);
+      setReadRingIds((prev) => {
+        const next: Record<string, boolean> = {};
+        let changed = false;
+        data.forEach((ring) => {
+          if (prev[ring.id]) next[ring.id] = true;
+        });
+        if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+        if (!changed) {
+          for (const key of Object.keys(next)) {
+            if (!prev[key]) {
+              changed = true;
+              break;
+            }
+          }
+        }
+        return changed ? next : prev;
+      });
       return data;
     },
     [currentHouseId]
@@ -326,6 +348,51 @@ export function useOwnerDashboard() {
       if (result.data?.length) {
         setRings((prev) => [...prev, ...result.data]);
       }
+    },
+    [currentHouseId]
+  );
+
+  const getRingById = useCallback(async (ringId: string, houseId?: string) => {
+    if (!ringId) return null;
+    let query = supabase
+      .from('doorbell_rings')
+      .select('*')
+      .eq('id', ringId)
+      .limit(1);
+
+    if (houseId) {
+      query = query.eq('house_id', houseId);
+    }
+
+    const result = await query.maybeSingle();
+    if (result.error) throw result.error;
+    return (result.data as Ring | null) || null;
+  }, []);
+
+  const updateRingStatus = useCallback(
+    async (
+      ringId: string,
+      status: 'waiting' | 'acknowledged' | 'responded' | 'dismissed',
+      houseId?: string
+    ) => {
+      const hId = houseId || currentHouseId;
+      if (!ringId || !hId) return false;
+
+      const result = await supabase
+        .from('doorbell_rings')
+        .update({ status })
+        .eq('id', ringId)
+        .eq('house_id', hId);
+
+      if (result.error) {
+        console.warn('Failed to update ring status:', result.error);
+        return false;
+      }
+
+      setRings((prev) =>
+        prev.map((ring) => (ring.id === ringId ? { ...ring, status } : ring))
+      );
+      return true;
     },
     [currentHouseId]
   );
@@ -373,9 +440,9 @@ export function useOwnerDashboard() {
   const deleteRing = useCallback(
     async (ringId: string, houseId?: string) => {
       const hId = houseId || currentHouseId;
-      return new Promise<void>((resolve) =>
+      return new Promise<boolean>((resolve) =>
         Alert.alert('Delete Ring', 'Are you sure you want to permanently delete this ring log?', [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve() },
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
           {
             text: 'Delete',
             style: 'destructive',
@@ -388,8 +455,16 @@ export function useOwnerDashboard() {
                   .eq('house_id', hId);
                 if (result.error) throw result.error;
                 await loadRings(hId || undefined);
-              } catch {}
-              resolve();
+                setReadRingIds((prev) => {
+                  if (!prev[ringId]) return prev;
+                  const next = { ...prev };
+                  delete next[ringId];
+                  return next;
+                });
+                resolve(true);
+              } catch {
+                resolve(false);
+              }
             },
           },
         ])
@@ -399,17 +474,41 @@ export function useOwnerDashboard() {
   );
 
   const markAllRead = useCallback(() => {
-    setUnreadCount(0);
-    setRings((prev) => prev.map((r) => r));
-  }, []);
+    setReadRingIds((prev) => {
+      const next = { ...prev };
+      rings.forEach((ring) => {
+        if (!ring.owner_reply || ring.owner_reply === '') {
+          next[ring.id] = true;
+        }
+      });
+      return next;
+    });
+  }, [rings]);
 
   // -----------------------------------------------------------------------
   // Message decryption
   // -----------------------------------------------------------------------
   const decryptMessage = useCallback(async (encryptedText: string): Promise<string> => {
-    const passphrase = await getStoredPassphrase();
-    if (!passphrase) throw new Error('No passphrase stored');
-    return decryptText(encryptedText, passphrase);
+    const storedPassphrase = (await getStoredPassphrase() || '').trim();
+    const configuredPassphrase = (CONFIG.ENCRYPTION_PASSPHRASE || '').trim();
+
+    const candidates = [storedPassphrase, configuredPassphrase]
+      .filter((value, index, arr) => !!value && !/^REPLACE_WITH_/i.test(value) && arr.indexOf(value) === index);
+
+    if (!candidates.length) {
+      throw new Error('No passphrase configured. Set it in Settings or EXPO_PUBLIC_ENCRYPTION_PASSPHRASE.');
+    }
+
+    let lastError: Error | null = null;
+    for (const passphrase of candidates) {
+      try {
+        return await decryptText(encryptedText, passphrase);
+      } catch (err) {
+        lastError = err as Error;
+      }
+    }
+
+    throw lastError || new Error('Decryption failed');
   }, []);
 
   // -----------------------------------------------------------------------
@@ -499,7 +598,12 @@ export function useOwnerDashboard() {
             const newRing = payload.new as Ring;
             // Immediate UI update for the active house
             setRings((prev) => [newRing, ...prev].slice(0, 50));
-            setUnreadCount((c) => c + 1);
+            setReadRingIds((prev) => {
+              if (!prev[newRing.id]) return prev;
+              const next = { ...prev };
+              delete next[newRing.id];
+              return next;
+            });
             detectFlood();
             onNewRing(newRing);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -564,6 +668,77 @@ export function useOwnerDashboard() {
       });
     } catch {}
   }, []);
+
+  const deactivatePushToken = useCallback(async () => {
+    const savedToken = await Storage.get<string>('expo_push_token');
+    if (!savedToken) return;
+    try {
+      await supabase.rpc('deactivate_push_token', { p_token: savedToken });
+    } catch {}
+  }, []);
+
+  const registerPushToken = useCallback(
+    async (userId: string, houseId?: string) => {
+      if (!userId) return null;
+      if (Platform.OS === 'web') return null;
+
+      // Expo Go on Android does not support full remote push flows.
+      if (Constants.appOwnership === 'expo' && Platform.OS === 'android') {
+        return null;
+      }
+
+      try {
+        const Notifications = await import('expo-notifications');
+
+        const permissions = await Notifications.getPermissionsAsync();
+        let status = permissions.status;
+        if (status !== 'granted') {
+          const requested = await Notifications.requestPermissionsAsync();
+          status = requested.status;
+        }
+        if (status !== 'granted') return null;
+
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('doorbell-rings', {
+            name: 'Doorbell Rings',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#f59e0b',
+            sound: 'default',
+          });
+        }
+
+        const projectId =
+          (Constants as any)?.expoConfig?.extra?.eas?.projectId ||
+          (Constants as any)?.easConfig?.projectId;
+
+        const tokenResponse = await Notifications.getExpoPushTokenAsync(
+          projectId ? { projectId } : undefined
+        );
+        const token = tokenResponse?.data;
+        if (!token) return null;
+
+        const hId = houseId || currentHouseId || null;
+        const payload = {
+          p_token: token,
+          p_house_id: hId,
+          p_platform: Platform.OS,
+          p_app_version: (Constants as any)?.expoConfig?.version || CONFIG.APP_VERSION,
+          p_device_label: (Constants as any)?.deviceName || null,
+        };
+
+        const upsertResult = await supabase.rpc('register_push_token', payload);
+        if (upsertResult.error) throw upsertResult.error;
+
+        await Storage.set('expo_push_token', token);
+        return token;
+      } catch (err) {
+        console.warn('Push token registration failed:', err);
+        return null;
+      }
+    },
+    [currentHouseId]
+  );
 
   // -----------------------------------------------------------------------
   // Door Points (unchanged Supabase queries from app.js)
@@ -755,8 +930,13 @@ export function useOwnerDashboard() {
       if (error) throw error;
       await Storage.set('auto_logout_minutes', settingsData.auto_logout_minutes);
       await loadSettings(userId, hId || undefined);
+      if (settingsData.push_enabled) {
+        await registerPushToken(userId, hId || undefined);
+      } else {
+        await deactivatePushToken();
+      }
     },
-    [currentHouseId, loadSettings]
+    [currentHouseId, loadSettings, registerPushToken, deactivatePushToken]
   );
 
   // -----------------------------------------------------------------------
@@ -813,12 +993,11 @@ export function useOwnerDashboard() {
       try {
         const houseList = await loadHouses();
         const houseId = await ensureHouseContext(houseList);
-        await Promise.all([
-          loadRings(houseId),
-          loadDoorPoints(houseId),
-          loadSettings(userId, houseId),
-          loadAuditLog(houseId),
-        ]);
+        const loadedSettings = await loadSettings(userId, houseId);
+        await Promise.all([loadRings(houseId), loadDoorPoints(houseId), loadAuditLog(houseId)]);
+        if (loadedSettings?.push_enabled !== false) {
+          await registerPushToken(userId, houseId);
+        }
       } catch (err) {
         console.error('Dashboard load error:', err);
         throw err;
@@ -826,7 +1005,16 @@ export function useOwnerDashboard() {
         setIsLoading(false);
       }
     },
-    [isLoading, loadHouses, ensureHouseContext, loadRings, loadDoorPoints, loadSettings, loadAuditLog]
+    [
+      isLoading,
+      loadHouses,
+      ensureHouseContext,
+      loadRings,
+      loadDoorPoints,
+      loadSettings,
+      loadAuditLog,
+      registerPushToken,
+    ]
   );
 
   // -----------------------------------------------------------------------
@@ -848,6 +1036,7 @@ export function useOwnerDashboard() {
     currentHouseId,
     isLoading,
     unreadCount,
+    readRingIds,
     floodWarning,
     currentFilter,
     currentDoorFilter,
@@ -862,6 +1051,8 @@ export function useOwnerDashboard() {
     loadDashboard,
     loadRings,
     loadMoreRings,
+    getRingById,
+    updateRingStatus,
     loadDoorPoints,
     loadAuditLog,
     clearAuditLog,
@@ -892,6 +1083,8 @@ export function useOwnerDashboard() {
     setupRealtimeSubscription,
     teardownRealtime,
     playNotificationSound,
+    registerPushToken,
+    deactivatePushToken,
     doorPointMembers,
   };
 }

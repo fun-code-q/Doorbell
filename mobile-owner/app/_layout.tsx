@@ -61,6 +61,46 @@ export default function RootLayout() {
     if (isUnsupported) return;
 
     let active = true;
+    const openFromNotification = (response: any) => {
+      const data = response?.notification?.request?.content?.data || {};
+      const ringId = typeof data.ring_id === 'string' ? data.ring_id : null;
+      const houseId = typeof data.house_id === 'string' ? data.house_id : null;
+      const url = typeof data.url === 'string' ? data.url : null;
+
+      if (ringId) {
+        router.push({
+          pathname: '/(dashboard)',
+          params: {
+            incoming_ring_id: ringId,
+            house_id: houseId || undefined,
+          } as any,
+        });
+        return;
+      }
+
+      if (url && url.startsWith('qrvault://')) {
+        try {
+          const parsed = new URL(url);
+          const deepRingId = parsed.searchParams.get('ring_id');
+          const deepHouseId = parsed.searchParams.get('house_id');
+          if (deepRingId) {
+            router.push({
+              pathname: '/(dashboard)',
+              params: {
+                incoming_ring_id: deepRingId,
+                house_id: deepHouseId || undefined,
+              } as any,
+            });
+            return;
+          }
+        } catch {}
+      }
+
+      router.push('/(dashboard)');
+    };
+
+    let responseSub: { remove: () => void } | null = null;
+
     (async () => {
       try {
         const Notifications = await import('expo-notifications');
@@ -74,11 +114,21 @@ export default function RootLayout() {
             shouldSetBadge: true,
           }),
         });
+
+        responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+          openFromNotification(response);
+        });
+
+        const lastResponse = await Notifications.getLastNotificationResponseAsync();
+        if (lastResponse) {
+          openFromNotification(lastResponse);
+        }
       } catch {}
     })();
 
     return () => {
       active = false;
+      responseSub?.remove();
     };
   }, []);
 

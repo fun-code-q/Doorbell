@@ -14,6 +14,11 @@
   pointer-events: none;
 }
 
+.toast-container--top-left {
+  left: 1rem;
+  right: auto;
+}
+
 .toast {
   display: flex;
   align-items: flex-start;
@@ -25,6 +30,10 @@
   box-shadow: var(--shadow-md);
   animation: slideInRight 0.3s ease;
   pointer-events: auto;
+}
+
+.toast-container--top-left .toast {
+  animation: slideInLeft 0.3s ease;
 }
 
 .toast-icon {
@@ -63,8 +72,16 @@
   animation: slideOutRight 0.3s ease forwards;
 }
 
+.toast-container--top-left .toast.removing {
+  animation: slideOutLeft 0.3s ease forwards;
+}
+
 @keyframes slideOutRight {
   to { opacity: 0; transform: translateX(100%); }
+}
+
+@keyframes slideOutLeft {
+  to { opacity: 0; transform: translateX(-100%); }
 }
 
 /* Loading Spinner */

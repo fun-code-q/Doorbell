@@ -68,6 +68,8 @@ export default function DashboardLayout() {
             }
           }),
         },
+        tabBarBackground: () => <View style={{ flex: 1, backgroundColor: Colors.bgElevated }} />,
+        sceneStyle: { backgroundColor: Colors.bgObsidian },
         tabBarActiveTintColor: Colors.accent,
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle: {
@@ -90,6 +92,7 @@ export default function DashboardLayout() {
         name="doors"
         options={{ 
           title: 'Door Management', 
+          tabBarLabel: 'Door',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="door-closed" size={size} color={color} />
           ) 

@@ -17,269 +17,432 @@
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <style>
-        .guest-container{width:92%;max-width:440px;text-align:center;padding:3.5rem 2.2rem;border-radius:3.5rem;background:var(--glass);backdrop-filter:blur(60px);border:1px solid var(--glass-border);box-shadow:var(--shadow-lg),inset 0 1px 0 rgba(255,255,255,0.05);animation:appAppear 1.2s cubic-bezier(0.16,1,0.3,1);position:relative;z-index:10}
-        @keyframes appAppear{0%{opacity:0;transform:scale(0.95) translateY(50px)}100%{opacity:1;transform:scale(1) translateY(0)}}
-        .guest-logo{font-family:var(--font-heading);font-size:3.2rem;margin-bottom:1rem;letter-spacing:-3px;font-weight:800;color:#fff;text-shadow:0 0 20px rgba(245,158,11,0.2)}
-        .location-badge{display:inline-block;padding:0.65rem 1.4rem;background:rgba(245,158,11,0.05);border-radius:3rem;color:var(--accent);font-size:0.8rem;font-weight:700;margin-bottom:3.5rem;border:1px solid rgba(245,158,11,0.1);text-transform:uppercase;letter-spacing:2px}
-        @media(max-width:480px){.guest-container{padding:2.5rem 1.5rem;border-radius:2.5rem}.guest-logo{font-size:2.8rem;margin-bottom:0.75rem}.location-badge{margin-bottom:2.5rem}}
-        @media(min-width:768px){.guest-container{max-width:460px;padding:4.5rem 3.5rem}}
+        :root {
+            --guest-accent: #f59e0b;
+            --guest-accent-light: rgba(245, 158, 11, 0.1);
+            --guest-success: #22c55e;
+            --guest-glass: rgba(255, 255, 255, 0.03);
+            --guest-border: rgba(255, 255, 255, 0.06);
+        }
 
-        .offline-indicator{position:fixed;top:0;left:0;right:0;padding:1rem;background:rgba(239,68,68,0.9);backdrop-filter:blur(10px);color:#fff;font-size:0.85rem;font-weight:700;text-align:center;z-index:5000;display:none;animation:slideDownFast 0.3s ease}
-        .offline-indicator.visible{display:block}
-        @keyframes slideDownFast{from{transform:translateY(-100%)}to{transform:translateY(0)}}
-
-        .status-cluster {
+        body {
+            background: var(--bg-obsidian);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.6rem;
-            margin-bottom: 2rem;
-            line-height: normal;
+            min-height: 100dvh;
+            padding: 1rem;
+            margin: 0;
+            overflow: hidden;
         }
-        .encryption-badge {
+
+        .header-minimal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(5,5,5,0.8), transparent);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo-sm {
+            font-family: var(--font-heading);
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--guest-accent);
+            letter-spacing: -0.05em;
+            text-transform: uppercase;
+        }
+
+        .guest-container {
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            padding: 3rem 2rem;
+            border-radius: var(--radius-xl);
+            background: var(--guest-glass);
+            backdrop-filter: blur(60px);
+            border: 1px solid var(--guest-border);
+            box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.05);
+            animation: appAppear 1s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            z-index: 10;
+        }
+
+        @keyframes appAppear {
+            0% { opacity: 0; transform: scale(0.98) translateY(30px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .location-header {
+            margin-bottom: 3rem;
+        }
+
+        .location-title {
+            font-family: var(--font-heading);
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -1.5px;
+            margin-bottom: 0.5rem;
+            line-height: 1.1;
+        }
+
+        .location-badge {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
             padding: 0.5rem 1.2rem;
-            background: rgba(34,197,94,0.1);
-            border: 1px solid rgba(34,197,94,0.25);
+            background: var(--guest-accent-light);
             border-radius: 3rem;
-            font-size: 0.8rem;
-            color: var(--success);
-            font-weight: 800;
-            height: 40px;
-            box-sizing: border-box;
+            color: var(--guest-accent);
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .status-strip {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .encryption-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 1rem;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 2rem;
+            font-size: 0.7rem;
+            color: var(--guest-success);
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        .info-btn-sm {
-            background: none;
-            border: 1px solid var(--glass-border);
+
+        .info-trigger {
+            background: var(--guest-glass);
+            border: 1px solid var(--guest-border);
             color: var(--text-muted);
-            width: 40px;
-            height: 40px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            font-size: 1rem;
             transition: all 0.3s ease;
-            box-sizing: border-box;
-            padding: 0;
-            line-height: 1;
-            flex-shrink: 0;
         }
-        .info-btn-sm:hover { color: var(--accent); border-color: var(--accent); transform: scale(1.1); }
-        
+
+        .info-trigger:hover {
+            border-color: var(--guest-accent);
+            color: var(--guest-accent);
+            transform: scale(1.05);
+        }
+
         .action-area {
             position: relative;
-            min-height: 64px;
             margin-top: 2rem;
         }
-        .action-bar {
+
+        .action-grid {
             display: flex;
-            gap: 1rem;
-            width: 100%;
+            gap: 0.75rem;
             align-items: stretch;
-            justify-content: center;
         }
-        .btn-icon-sq { 
-            width: 64px; 
-            height: 64px; 
-            padding: 0 !important; 
-            font-size: 1.8rem !important; 
-            flex-shrink: 0; 
-            box-shadow: var(--shadow-sm); 
-            border-radius: 1.5rem !important; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            line-height: 1; 
-        }
-        .btn-main-action { 
-            flex-grow: 1; 
-            height: 64px; 
-            border-radius: 1.5rem !important; 
-            font-size: 1.25rem !important; 
-            font-weight: 800; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 0.6rem; 
-            box-shadow: 0 10px 40px rgba(245,158,11,0.2); 
-        }
-        
-        .inline-state {
-            display: none;
-            width: 100%;
-            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .inline-state.visible {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-        }
-        .inline-status-msg {
-            flex-grow: 1;
+
+        .btn-message-toggle {
+            width: 64px;
             height: 64px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--glass-border);
-            border-radius: 1.5rem;
+            border-radius: var(--radius-md) !important;
+            background: var(--guest-glass);
+            border: 1px solid var(--guest-border);
+            color: var(--text-secondary);
+            font-size: 1.5rem !important;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            color: var(--text-primary);
-            font-size: 1rem;
-            padding: 0 1rem;
+            transition: all 0.2s ease;
         }
-        .inline-status-msg.error { border-color: var(--error); color: var(--error); }
-        .inline-status-msg.success { border-color: var(--success); color: var(--success); }
-        .btn-retry { width: 64px; height: 64px; padding: 0 !important; font-size: 1.5rem !important; border-radius: 1.5rem !important; min-width: 64px; }
-        
-        .message-content {
+
+        .btn-message-toggle.active {
+            background: var(--guest-accent-light);
+            border-color: var(--guest-accent);
+            color: var(--guest-accent);
+        }
+
+        .btn-ring-main {
+            flex: 1;
+            height: 64px;
+            border-radius: var(--radius-md) !important;
+            font-size: 1.1rem !important;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, var(--guest-accent), #d97706);
+            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.2);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-ring-main::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .btn-ring-main:hover::after {
+            transform: translateX(100%);
+        }
+
+        .ring-btn-container.is-ringing .btn-ring-main {
+            animation: ringShudder 0.15s linear infinite;
+        }
+
+        @keyframes ringShudder {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-1px); }
+            75% { transform: translateX(1px); }
+            100% { transform: translateX(0); }
+        }
+
+        .message-panel {
             display: none;
-            padding: 1.2rem;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--glass-border);
-            border-radius: 1.5rem;
             margin-bottom: 1.5rem;
-            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: slideInDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .message-content.visible { display: block; border-color: var(--accent); }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); scale: 0.98; } to { opacity: 1; transform: translateY(0); scale: 1; } }
-        
-        .reply-card {
-            margin-top: 2rem;
+
+        .message-panel.visible {
+            display: block;
+        }
+
+        @keyframes slideInDown {
+            from { opacity: 0; transform: translateY(-15px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .form-textarea-premium {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--guest-border);
+            border-radius: var(--radius-md);
+            padding: 1.2rem;
+            color: #fff;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            resize: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-textarea-premium:focus {
+            outline: none;
+            border-color: var(--guest-accent);
+            background: rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.1);
+        }
+
+        .reply-card-professional {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(120%);
+            width: 92%;
+            max-width: 400px;
+            background: rgba(13, 13, 15, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--guest-accent);
+            border-radius: var(--radius-lg);
             padding: 1.5rem;
-            border-radius: 2rem;
-            background: linear-gradient(135deg, rgba(245,158,11,0.05), rgba(0,0,0,0.4));
-            border: 1px solid var(--accent);
-            display: none;
-            animation: drawerSlide 0.7s cubic-bezier(0.34,1.56,0.64,1);
-            box-shadow: 0 0 30px rgba(245,158,11,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+            z-index: 1000;
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        @keyframes drawerSlide{0%{opacity:0;transform:translateY(50px) scale(0.9)}100%{opacity:1;transform:translateY(0) scale(1)}}
-        .reply-card-header {
+
+        .reply-card-professional.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .reply-header {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            justify-content: space-between;
             font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 3px;
-            color: var(--accent);
-            margin-bottom: 1rem;
+            letter-spacing: 2px;
+            color: var(--guest-accent);
+            font-weight: 800;
         }
-        .reply-card-text {
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--guest-accent);
+            border-radius: 50%;
+            animation: livePulse 1s infinite;
+        }
+
+        @keyframes livePulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .reply-body {
             font-family: var(--font-heading);
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: 800;
             color: #fff;
-            line-height: 1.2;
+            line-height: 1.25;
+            letter-spacing: -0.5px;
         }
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--accent);
-            border-radius: 50%;
-            animation: dotUpdate 1s infinite alternate;
+
+        .timestamp-footer {
+            margin-top: 2rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        @keyframes dotUpdate { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.2); } }
-        
-        .modal-overlay {
+
+        .offline-toast {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 2rem;
+            right: 0;
+            background: var(--error);
+            color: #fff;
+            padding: 0.6rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            z-index: 5000;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
         }
-        .modal-overlay.visible { display: flex; }
-        .modal-content { padding: 2.5rem; text-align: center; max-width: 400px; }
-        .modal-content h2 { margin-bottom: 1rem; color: var(--accent); }
-        .modal-content p { margin-bottom: 2rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
 
+        .offline-toast.visible { transform: translateY(0); }
+
+        @media (max-width: 480px) {
+            .guest-container { padding: 2.5rem 1.5rem; }
+            .location-title { font-size: 1.8rem; }
+        }
     </style>
 </head>
 <body>
     <div class="mesh-bg"></div>
-    <div class="offline-indicator" id="offline-indicator" role="alert">
-        <span data-i18n="offline_message">You are offline. Ring will be sent when connected.</span>
+    <div class="header-minimal">
+        <div class="logo-sm">QR DOORBELL</div>
+        <div class="header-right">
+            <div class="status-dot" id="status-dot"></div>
+        </div>
     </div>
+    
+    <div class="offline-toast" id="offline-indicator">
+        <span data-i18n="offline_message">SYSTEM OFFLINE</span>
+    </div>
+
     <div class="guest-container" role="main">
-        <div class="guest-logo">QR DoorBell</div>
+        <div class="location-header">
+            <div class="location-badge">
+                <span aria-hidden="true">&#128205;</span>
+                <span id="location-name" data-i18n="visitor_welcome">Visitor Welcome</span>
+            </div>
+            <h1 class="location-title" data-i18n="secure_entry">Secure Entry Point</h1>
+        </div>
+
         <div id="main-form">
-            <div class="status-cluster">
+            <div class="status-strip">
                 <div id="encryption-indicator" class="encryption-badge" style="display:none;">
-                    <span class="lock-icon" aria-hidden="true">&#128274;</span>
-                    <span data-i18n="encrypted">Secure</span>
+                    <span aria-hidden="true">&#128274;</span>&nbsp;
+                    <span data-i18n="encrypted">End-to-End Encrypted</span>
                 </div>
-                <button class="info-btn-sm interactive" id="info-modal-trigger" aria-label="Instructions">ⓘ</button>
+                <button class="info-trigger interactive" id="info-modal-trigger" aria-label="Security Info">ⓘ</button>
             </div>
 
-            <div class="message-dropdown-container">
-                <div class="message-content interactive" id="message-drawer">
-                    <textarea id="message" class="form-textarea interactive" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500" aria-label="Visitor message"></textarea>
-                    <div class="char-counter" id="char-counter">0 / 500</div>
-                    <div class="scam-warning" id="scam-warning" role="alert">
-                        <span>&#9888;</span> Security Rule: No links.
-                    </div>
-                </div>
+            <div class="message-panel" id="message-drawer">
+                <textarea id="message" class="form-textarea-premium interactive" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500"></textarea>
+                <div class="char-counter" id="char-counter" style="text-align:right; font-size:0.7rem; margin-top:0.4rem; color:var(--text-muted)">0 / 500</div>
             </div>
             
             <div class="action-area">
-                <div class="action-bar" id="action-bar">
-                    <button class="btn btn-secondary btn-icon-sq interactive" id="message-toggle-btn" aria-label="Add note">＋</button>
-                    <div class="ring-btn-container" id="ring-container">
-                        <div class="ring-pulse"></div>
-                         <button id="ring-btn" class="btn btn-primary btn-main-action interactive" data-action="send-ring" aria-label="Send doorbell ring">
-                             <span id="ring-btn-text" data-i18n="ring_button">Ring</span>
-                             <span id="ring-btn-icon" aria-hidden="true" style="display:none;">🔔</span>
-                         </button>
+                <div class="action-grid" id="action-bar">
+                    <button class="btn-message-toggle interactive" id="message-toggle-btn" aria-label="Add message">＋</button>
+                    <div class="ring-btn-container" id="ring-container" style="flex:1">
+                        <button id="ring-btn" class="btn-ring-main interactive" data-action="send-ring">
+                            <span id="ring-btn-text" data-i18n="ring_button">Ring Doorbell</span>
+                        </button>
                     </div>
                 </div>
 
                 <!-- Inline States -->
-                <div id="inline-error" class="inline-state">
-                    <div class="inline-status-msg error">
-                        <span aria-hidden="true">&#9888;</span>&nbsp;<span id="error-text">Missing QR token</span>
+                <div id="inline-error" class="inline-state" style="margin-top:1rem">
+                    <div class="inline-status-msg error" style="border-radius: var(--radius-md)">
+                        <span id="error-text">Missing QR token</span>
                     </div>
-                    <button class="btn btn-secondary btn-retry interactive" data-action="retry-capture" aria-label="Retry">&#8635;</button>
+                    <button class="btn btn-secondary btn-retry interactive" data-action="retry-capture" style="border-radius: var(--radius-md)">&#8635;</button>
                 </div>
 
-                <div id="inline-success" class="inline-state">
-                    <div class="inline-status-msg success">
-                        <span aria-hidden="true">&#9989;</span>&nbsp;<span data-i18n="ring_button_sent">Signal Sent!</span>
+                <div id="inline-success" class="inline-state" style="margin-top:1rem">
+                    <div class="inline-status-msg success" style="border-radius: var(--radius-md)">
+                        <span data-i18n="ring_button_sent">Signal Transmitted</span>
                     </div>
                 </div>
             </div>
             
-            <div id="timestamp-display" class="timestamp-display"></div>
-        </div>
-        
-        <div id="reply-drawer" class="reply-card">
-            <div class="reply-card-header">
-                <span class="pulse-dot"></span>
-                <span data-i18n="reply_inbound">Signal Inbound</span>
-            </div>
-            <div id="reply-text" class="reply-card-text" data-i18n="reply_waiting">Please wait...</div>
+            <div id="timestamp-display" class="timestamp-footer"></div>
         </div>
     </div>
 
+    <!-- Professional Reply Drawer -->
+    <div id="reply-drawer" class="reply-card-professional">
+        <div class="reply-header">
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                <span data-i18n="reply_inbound">Live Response</span>
+            </div>
+            <div class="reply-time" id="reply-timestamp"></div>
+        </div>
+        <div id="reply-text" class="reply-body" data-i18n="reply_waiting">Connecting to owner...</div>
+    </div>
+
     <div id="instruction-modal" class="modal-overlay">
-        <div class="modal-content glass-card animate-scale-in">
-            <h2 data-i18n="how_it_works">How it works</h2>
-            <p data-i18n="instruction_desc">Your secure signal is end-to-end encrypted and sent directly to the owner. Please wait for a reply on this screen.</p>
-            <button class="btn btn-primary btn-full interactive" id="close-modal-btn" data-i18n="close">Close</button>
+        <div class="modal-content glass-card animate-scale-in" style="border-radius: var(--radius-lg)">
+            <h2 data-i18n="how_it_works">Secure Entry</h2>
+            <p data-i18n="instruction_desc">This entry point is protected by end-to-end encryption. Your signal is sent directly to the owner. Please keep this screen open for responses.</p>
+            <button class="btn btn-primary btn-full interactive" id="close-modal-btn" data-i18n="close" style="border-radius: var(--radius-md)">Got it</button>
         </div>
     </div>
 
