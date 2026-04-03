@@ -6,6 +6,9 @@
 
 const I18n = {
   currentLang: "en",
+  observer: null,
+  _isApplying: false,
+  _queuedApply: false,
 
   translations: {
     en: {
@@ -319,9 +322,16 @@ const I18n = {
   },
 
   setupObserver: function() {
-    if (this.observer) return;
+    if (this.observer || typeof MutationObserver === "undefined" || !document.body) return;
     var self = this;
-    this.observer = new MutationObserver(function() { self.apply(); });
+    this.observer = new MutationObserver(function() {
+      if (self._isApplying || self._queuedApply) return;
+      self._queuedApply = true;
+      Promise.resolve().then(function() {
+        self._queuedApply = false;
+        self.apply();
+      });
+    });
     this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-i18n", "data-i18n-placeholder"] });
   },
 
@@ -344,14 +354,26 @@ const I18n = {
   },
 
   apply: function() {
+    if (this._isApplying) return;
+    this._isApplying = true;
     var self = this;
-    document.querySelectorAll("[data-i18n]").forEach(function(el) {
-      var key = el.getAttribute("data-i18n");
-      el.textContent = self.t(key);
-    });
-    document.querySelectorAll("[data-i18n-placeholder]").forEach(function(el) {
-      var key = el.getAttribute("data-i18n-placeholder");
-      el.placeholder = self.t(key);
-    });
+    try {
+      document.querySelectorAll("[data-i18n]").forEach(function(el) {
+        var key = el.getAttribute("data-i18n");
+        var translated = self.t(key);
+        if (el.textContent !== translated) {
+          el.textContent = translated;
+        }
+      });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach(function(el) {
+        var key = el.getAttribute("data-i18n-placeholder");
+        var translated = self.t(key);
+        if (el.placeholder !== translated) {
+          el.placeholder = translated;
+        }
+      });
+    } finally {
+      this._isApplying = false;
+    }
   }
 };
