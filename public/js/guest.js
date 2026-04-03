@@ -238,26 +238,37 @@
       Utils.vibrate([50, 50, 100]);
 
 
-      supabaseClient
-        .channel("reply_" + ringData.id)
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "doorbell_rings",
-            filter: "id=eq." + ringData.id
-          },
-          function(payload) {
-            if (payload.new.owner_reply) {
-              replyDrawer.style.display = "block";
-              replyText.textContent = payload.new.owner_reply;
-              Utils.vibrate([100, 50, 100, 50, 100]);
-              playResponseChime();
-            }
-          }
-        )
-        .subscribe();
+      var liveRepliesEnabled = !!(CONFIG.FEATURE_FLAGS && CONFIG.FEATURE_FLAGS.guestLiveReplies);
+      if (liveRepliesEnabled) {
+        try {
+          supabaseClient
+            .channel("reply_" + ringData.id)
+            .on(
+              "postgres_changes",
+              {
+                event: "UPDATE",
+                schema: "public",
+                table: "doorbell_rings",
+                filter: "id=eq." + ringData.id
+              },
+              function(payload) {
+                if (payload.new.owner_reply) {
+                  replyDrawer.style.display = "block";
+                  replyText.textContent = payload.new.owner_reply;
+                  Utils.vibrate([100, 50, 100, 50, 100]);
+                  playResponseChime();
+                }
+              }
+            )
+            .subscribe(function(status, err) {
+              if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+                console.warn("Guest reply realtime unavailable:", err || status);
+              }
+            });
+        } catch (realtimeErr) {
+          console.warn("Guest reply realtime init failed:", realtimeErr);
+        }
+      }
 
       timestampDisplay.textContent = Utils.formatDate(new Date());
      } catch (err) {

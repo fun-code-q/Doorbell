@@ -8,8 +8,8 @@
   var runtime = window.__QR_CONFIG || {};
   var defaultSupabaseUrl = "REPLACE_WITH_YOUR_SUPABASE_URL";
   var defaultSupabaseAnonKey = "REPLACE_WITH_YOUR_ANON_KEY";
-  var resolvedSupabaseUrl = runtime.SUPABASE_URL || defaultSupabaseUrl;
-  var resolvedSupabaseAnonKey = runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || defaultSupabaseAnonKey;
+  var resolvedSupabaseUrl = (runtime.SUPABASE_URL || defaultSupabaseUrl || "").trim().replace(/\/+$/, "");
+  var resolvedSupabaseAnonKey = (runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || defaultSupabaseAnonKey || "").trim();
 
   const CONFIG = {
     /* Supabase — these MUST be set before use */
@@ -47,7 +47,8 @@
       auditLog: true,
       darkMode: true,
       offlineMode: true,
-      encryption: true
+      encryption: true,
+      guestLiveReplies: false
     },
 
     /* Environment Detection */
@@ -62,18 +63,20 @@
       var key = (CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY || "").trim();
       var urlValid = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url);
       var keyLooksLikeJwt = /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(key);
-      var usingPlaceholders = url.indexOf("REPLACE_WITH_YOUR_SUPABASE_URL") !== -1 || key.indexOf("REPLACE_WITH_YOUR_ANON_KEY") !== -1 || key.indexOf("REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE") !== -1;
+      var keyLooksLikePublishable = /^sb_(publishable|anon|public)_[A-Za-z0-9._-]+$/i.test(key);
+      var keyValid = keyLooksLikeJwt || keyLooksLikePublishable;
+      var usingPlaceholders = /^REPLACE_WITH_/i.test(url) || /^REPLACE_WITH_/i.test(key);
       return (
         urlValid &&
-        keyLooksLikeJwt &&
+        keyValid &&
         !usingPlaceholders
       );
     }
   };
 
   /* Warn in dev if encryption passphrase is default */
-  if (CONFIG.ENCRYPTION_PASSPHRASE.indexOf("CHANGE_THIS") !== -1 && CONFIG.isDevelopment()) {
-    console.warn("[QR Doorbell] Using default encryption passphrase. Set ENCRYPTION_PASSPHRASE in config for production.");
+  if (/^REPLACE_WITH_/i.test((CONFIG.ENCRYPTION_PASSPHRASE || "").trim())) {
+    console.warn("[QR Doorbell] Encryption passphrase is not configured. Set ENCRYPTION_PASSPHRASE.");
   }
   if (!CONFIG.hasSupabaseConfig()) {
     console.warn("[QR Doorbell] Supabase is not fully configured. Set SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_KEY.");
