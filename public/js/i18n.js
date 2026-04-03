@@ -12,8 +12,8 @@ const I18n = {
 
   translations: {
     en: {
-      app_name: "QR Doorbell",
-      guest_title: "Smart Entry",
+      app_name: "QR DoorBell",
+      guest_title: "QR DoorBell",
       ring_button: "Signal",
       ring_button_sending: "Reaching Center...",
       ring_button_sent: "Signal Received",

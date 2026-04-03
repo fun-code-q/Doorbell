@@ -2,10 +2,10 @@
 
 :root {
   --primary: #f59e0b;
-  --primary-glow: rgba(245, 158, 11, 0.2);
-  --bg: #030303;
-  --surface: #0a0a0b;
-  --surface-2: #111114;
+  --primary-glow: rgba(245, 158, 11, 0.15);
+  --bg: #050505;
+  --surface: #08080a;
+  --surface-2: #101012;
   --border: rgba(255, 255, 255, 0.08);
   --border-soft: rgba(255, 255, 255, 0.04);
   --text: #fdfdfd;
@@ -242,6 +242,43 @@ body {
   margin-top: 5px;
 }
 
+/* Button System */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  border-radius: 18px;
+  border: none;
+  font-family: var(--font-brand);
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: black;
+  box-shadow: 0 8px 16px var(--primary-glow);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px var(--primary-glow);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+
 /* Action Center */
 .action-center {
   margin-top: 10px;
@@ -371,9 +408,13 @@ body {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 30px;
-  padding: 30px;
+  padding: 35px;
   max-width: 400px;
-  width: 100%;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .modal-surface h2 {
