@@ -1,42 +1,53 @@
-/* ============================================================
-   QR Doorbell - Guest Page Bootstrap
-   ============================================================ */
-
 (function() {
   "use strict";
 
   var MSG_MAX_LENGTH = 500;
-  var URL_PATTERN = /(https?:\/\/|www\.|ftp\.|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/gi;
-  var SUSPICIOUS_PATTERNS = [/<script/i, /javascript:/i, /on\w+\s*=/i, /eval\(/i, /document\.cookie/i, /window\.location/i];
-
+  
+  // Element Selectors (Updated for Professional UI)
   var ringBtn = document.getElementById("ring-btn");
   var messageInput = document.getElementById("message");
-  var replyDrawer = document.getElementById("reply-drawer");
+  var replyPanel = document.getElementById("reply-panel");
   var replyText = document.getElementById("reply-text");
   var replyTime = document.getElementById("reply-timestamp");
   var locationName = document.getElementById("location-name");
   var offlineIndicator = document.getElementById("offline-indicator");
-  var timestampDisplay = document.getElementById("timestamp-display");
+  var timestampDisplay = document.getElementById("timestamp-view");
   var charCounter = document.getElementById("char-counter");
   var encryptionIndicator = document.getElementById("encryption-indicator");
   
   var actionBar = document.getElementById("action-bar");
-  var inlineError = document.getElementById("inline-error");
-  var inlineErrorText = document.getElementById("error-text");
-  var inlineSuccess = document.getElementById("inline-success");
+  var statusError = document.getElementById("status-error");
+  var errorTextEl = document.getElementById("error-text");
+  var statusSuccess = document.getElementById("status-success");
   var ringContainer = document.getElementById("ring-container");
   var ringBtnText = document.getElementById("ring-btn-text");
+  
+  var messageToggle = document.getElementById("message-toggle");
+  var messageDrawer = document.getElementById("message-drawer");
+  var infoTrigger = document.getElementById("info-trigger");
+  var secureModal = document.getElementById("secure-modal");
+  var modalClose = document.getElementById("modal-close");
 
   var ringSent = false;
   var supabaseClient = null;
   var qrToken = Utils.getQueryParam("t");
   var resolvedDoor = null;
   var ringResetTimer = null;
-  var replyPollTimer = null;
-  var replyPollCount = 0;
+  var replySubscription = null;
   var RING_ACTIVE_MS = 15000;
-  var REPLY_POLL_INTERVAL_MS = 2000;
-  var REPLY_POLL_MAX = 300;
+
+  I18n.init();
+
+  if (!CONFIG.hasSupabaseConfig || !CONFIG.hasSupabaseConfig()) {
+    ringBtn.disabled = true;
+    Utils.showToast("System Not Configured", "error", 0);
+    return;
+  }
+
+  supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY);
+
+  ringBtn.disabled = true;
+
   var encryptionReady = !!(
     CONFIG.FEATURE_FLAGS &&
     CONFIG.FEATURE_FLAGS.encryption &&
@@ -45,34 +56,19 @@
     !/^REPLACE_WITH_/i.test(String(CONFIG.ENCRYPTION_PASSPHRASE).trim())
   );
 
-  I18n.init();
-
-   if (!CONFIG.hasSupabaseConfig || typeof CONFIG.hasSupabaseConfig !== 'function' || !CONFIG.hasSupabaseConfig()) {
-     ringBtn.disabled = true;
-     Utils.showToast("System is not configured. Please contact the owner.", "error", 0);
-     return;
-   }
-
-  supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY);
-
-  ringBtn.disabled = true;
-
   if (encryptionReady) {
     encryptionIndicator.style.display = "inline-flex";
   }
 
-  function setInvalidQrState(message) {
-    if (inlineErrorText) inlineErrorText.textContent = message || "Missing QR token";
+  function setInvalidState(msg) {
+    if (errorTextEl) errorTextEl.textContent = msg || "Invalid Token";
     if (actionBar) actionBar.style.display = "none";
-    if (inlineError) inlineError.classList.add("visible");
+    if (statusError) statusError.classList.add("visible");
     ringBtn.disabled = true;
   }
 
-  function resetRingUiState() {
-    if (ringResetTimer) {
-      clearTimeout(ringResetTimer);
-      ringResetTimer = null;
-    }
+  function resetUi() {
+    if (ringResetTimer) { clearTimeout(ringResetTimer); ringResetTimer = null; }
     ringSent = false;
     if (ringContainer) ringContainer.classList.remove("is-ringing");
     if (ringBtnText) {
@@ -84,7 +80,7 @@
     }
   }
 
-  function beginRingUiState() {
+  function startRinging() {
     ringSent = true;
     ringBtn.disabled = true;
     if (ringContainer) ringContainer.classList.add("is-ringing");
@@ -92,361 +88,166 @@
       ringBtnText.setAttribute("data-i18n", "ring_button_sending");
       I18n.apply();
     }
-    if (inlineSuccess) inlineSuccess.classList.remove("visible");
+    if (statusSuccess) statusSuccess.classList.remove("visible");
   }
 
-  function scheduleRingUiReset() {
-    if (ringResetTimer) clearTimeout(ringResetTimer);
-    ringResetTimer = setTimeout(function() {
-      resetRingUiState();
-    }, RING_ACTIVE_MS);
-  }
-
-  function stopReplyWatcher() {
-    if (replyPollTimer) {
-      clearInterval(replyPollTimer);
-      replyPollTimer = null;
-    }
-    replyPollCount = 0;
-  }
-
-  function showOwnerReply(reply) {
+  function showReply(reply) {
     if (!reply) return;
-    replyDrawer.classList.add("visible");
+    replyPanel.classList.add("visible");
     replyText.textContent = reply;
     if (replyTime) {
       replyTime.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-    Utils.vibrate([100, 50, 100, 50, 100]);
+    Utils.vibrate([100, 50, 100]);
     playResponseChime();
   }
 
-  async function pollReplyByToken(ringId) {
-    if (!ringId || !qrToken) return { terminal: false };
-    var replyResult = await supabaseClient.rpc("get_guest_ring_reply_by_token", {
-      p_ring_id: ringId,
-      p_qr_token: qrToken
-    });
-    if (replyResult.error) {
-      if (replyResult.error.code !== "PGRST301") {
-        console.warn("Reply polling error:", replyResult.error);
-      }
-      return { terminal: false };
+  function stopReplySubscription() {
+    if (replySubscription) {
+      supabaseClient.removeChannel(replySubscription);
+      replySubscription = null;
     }
-    var row = Array.isArray(replyResult.data) ? replyResult.data[0] : replyResult.data;
-    if (row && row.owner_reply && String(row.owner_reply).trim() !== "") {
-      showOwnerReply(String(row.owner_reply).trim());
-      return { terminal: true };
-    }
-    if (row && row.status) {
-      var status = String(row.status).toLowerCase();
-      if (status === "dismissed" || status === "acknowledged" || status === "responded") {
-        return { terminal: true };
-      }
-    }
-    return { terminal: false };
   }
 
-  function startReplyWatcher(ringId) {
-    stopReplyWatcher();
-    pollReplyByToken(ringId).then(function(result) {
-      if (result && result.terminal) {
-        stopReplyWatcher();
-        resetRingUiState();
-      }
-    }).catch(function(err) {
-      console.warn("Initial reply poll failed:", err);
-    });
-
-    replyPollTimer = setInterval(function() {
-      replyPollCount += 1;
-      if (replyPollCount > REPLY_POLL_MAX) {
-        stopReplyWatcher();
-        return;
-      }
-      pollReplyByToken(ringId)
-        .then(function(result) {
-          if (result && result.terminal) {
-            stopReplyWatcher();
-            resetRingUiState();
-          }
-        })
-        .catch(function(err) {
-          console.warn("Reply poll tick failed:", err);
-        });
-    }, REPLY_POLL_INTERVAL_MS);
+  function startReplySubscription(ringId) {
+    stopReplySubscription();
+    
+    // Subscribe to specific ring changes
+    replySubscription = supabaseClient
+      .channel('public:doorbell_rings:id=eq.' + ringId)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'doorbell_rings', 
+        filter: 'id=eq.' + ringId 
+      }, function(payload) {
+        var row = payload.new;
+        if (row && row.owner_reply && String(row.owner_reply).trim() !== "") {
+          showReply(String(row.owner_reply).trim());
+          stopReplySubscription();
+          resetUi();
+        } else if (row && (row.status === 'dismissed' || row.status === 'responded')) {
+          stopReplySubscription();
+          resetUi();
+        }
+      })
+      .subscribe();
   }
 
-   async function resolveQrToken() {
-     if (!qrToken) {
-       setInvalidQrState("Missing QR token");
-       return;
-     }
-     try {
-       var resolved = await supabaseClient.rpc("resolve_qr_token", { p_qr_token: qrToken });
-       if (resolved.error) throw resolved.error;
-       
-       // Validate response structure
-       if (!resolved.data) {
-         throw new Error("No data returned from resolve_qr_token");
-       }
-       
-       var row = null;
-       if (Array.isArray(resolved.data)) {
-         if (resolved.data.length === 0) {
-           throw new Error("Empty data array returned from resolve_qr_token");
-         }
-         row = resolved.data[0] || null;
-       } else {
-         row = resolved.data || null;
-       }
-       
-       if (!row) {
-         throw new Error("Invalid data structure returned from resolve_qr_token");
-       }
-       
-       if (!row.door_point_id) {
-         setInvalidQrState("This QR code is invalid or inactive.");
-         return;
-       }
-       resolvedDoor = row;
-       if (locationName && resolvedDoor.door_location) {
-         locationName.textContent = resolvedDoor.door_location;
-       }
-       ringBtn.disabled = false;
-     } catch (err) {
-       console.error("QR resolve failed:", err);
-       setInvalidQrState("This QR code is invalid or inactive.");
-     }
-   }
-  resolveQrToken();
-
-  Utils.registerServiceWorker();
+  async function resolve() {
+    if (!qrToken) { setInvalidState("Token Missing"); return; }
+    try {
+      var res = await supabaseClient.rpc("resolve_qr_token", { p_qr_token: qrToken });
+      if (res.error) throw res.error;
+      var data = Array.isArray(res.data) ? res.data[0] : res.data;
+      if (!data || !data.door_point_id) { setInvalidState("Invalid Point"); return; }
+      resolvedDoor = data;
+      if (locationName && data.door_name) { locationName.textContent = data.door_name; }
+      ringBtn.disabled = false;
+    } catch (err) {
+      console.error(err);
+      setInvalidState("System Unavailable");
+    }
+  }
+  resolve();
 
   function updateOffline() {
     offlineIndicator.classList.toggle("visible", !navigator.onLine);
+    var connectionDot = document.getElementById("status-dot");
+    if (connectionDot) connectionDot.classList.toggle("online", navigator.onLine);
   }
   window.addEventListener("online", updateOffline);
   window.addEventListener("offline", updateOffline);
   updateOffline();
 
-  function containsLinks(text) {
-    URL_PATTERN.lastIndex = 0;
-    return URL_PATTERN.test(text);
-  }
-
-  function containsSuspicious(text) {
-    for (var i = 0; i < SUSPICIOUS_PATTERNS.length; i++) {
-      if (SUSPICIOUS_PATTERNS[i].test(text)) return true;
-    }
-    return false;
-  }
-
-   function sanitizeInput(text) {
-     // Remove HTML tags
-     text = text.replace(/<[^>]*>/g, "");
-     
-     // Remove/escape potential XSS vectors
-     text = text.replace(/javascript:/gi, "");
-     text = text.replace(/data:/gi, "");
-     text = text.replace(/vbscript:/gi, "");
-     text = text.replace(/on\w+\s*=/gi, "");
-     
-     // Remove URLs as per security policy
-     text = text.replace(URL_PATTERN, "[link removed]");
-     
-     // Remove suspicious patterns
-     for (var i = 0; i < SUSPICIOUS_PATTERNS.length; i++) {
-       text = text.replace(SUSPICIOUS_PATTERNS[i], "");
-     }
-     
-     return text.trim();
-   }
-
   messageInput.addEventListener("input", function() {
-    var val = messageInput.value;
-    var len = val.length;
-
+    var len = messageInput.value.length;
     charCounter.textContent = len + " / " + MSG_MAX_LENGTH;
-    charCounter.className = "char-counter";
-    if (len > MSG_MAX_LENGTH * 0.9) charCounter.classList.add("error");
-    else if (len > MSG_MAX_LENGTH * 0.7) charCounter.classList.add("warning");
-
-    if (containsLinks(val) || containsSuspicious(val)) {
-      messageInput.style.borderColor = "var(--error)";
-    } else {
-      messageInput.style.borderColor = "";
-    }
+    charCounter.classList.toggle("error", len > MSG_MAX_LENGTH * 0.9);
   });
 
   ringBtn.addEventListener("click", async function() {
     if (ringSent || !resolvedDoor) return;
-    if (!Utils.isOnline()) {
-      Utils.showToast(I18n.t("status_offline"), "warning");
-      return;
-    }
-    beginRingUiState();
-    const hideLoading = Utils.showLoading(I18n.t("ringing"));
-
-
-    // Haptic Feedback for Guest
-    Utils.vibrate([10, 30, 10]);
+    if (!navigator.onLine) { Utils.showToast("Offline", "error"); return; }
+    
+    startRinging();
+    const hideLoading = Utils.showLoading(I18n.t("status_transmitting"));
+    Utils.vibrate([20, 40, 20]);
 
     try {
-      var messageText = messageInput.value ? messageInput.value.trim() : null;
-      var messageEncrypted = false;
-      if (messageText) {
-        messageText = sanitizeInput(messageText);
-        if (encryptionReady) {
-          try {
-            messageText = await Crypto.encryptText(messageText, CONFIG.ENCRYPTION_PASSPHRASE);
-            messageEncrypted = true;
-          } catch (encErr) {
-            console.warn("Message encryption failed, sending sanitized plaintext:", encErr);
-          }
-        }
+      var msg = messageInput.value ? messageInput.value.trim() : null;
+      var encrypted = false;
+      if (msg && encryptionReady) {
+        try {
+          msg = await Crypto.encryptText(msg, CONFIG.ENCRYPTION_PASSPHRASE);
+          encrypted = true;
+        } catch (e) { console.warn("Encryption failed", e); }
       }
 
-      var userAgentHash = null;
-      try {
-        userAgentHash = await Crypto.hashString((navigator.userAgent || "unknown").slice(0, 512));
-      } catch (hashErr) {
-        console.warn("Unable to hash user agent fingerprint:", hashErr);
-      }
+      var hash = null;
+      try { hash = await Crypto.hashString(navigator.userAgent || "anon"); } catch (e) {}
 
-
-
-       var insertResult = await supabaseClient.rpc("create_doorbell_ring_by_token", {
-         p_qr_token: qrToken,
-         p_guest_message: messageText,
-         p_guest_message_encrypted: messageEncrypted,
-         p_user_agent_hash: userAgentHash
-       });
-       if (insertResult.error) throw insertResult.error;
-       
-       // Validate response structure
-       if (!insertResult.data) {
-         throw new Error("No data returned from create_doorbell_ring_by_token");
-       }
-       
-       var ringData = Array.isArray(insertResult.data) ? insertResult.data[0] : insertResult.data;
-       if (!ringData) {
-         throw new Error("Invalid data structure returned from create_doorbell_ring_by_token");
-       }
-       
-       if (!ringData.id) {
-         throw new Error("Failed to create doorbell ring - no ID returned");
-       }
-
+      var res = await supabaseClient.rpc("create_doorbell_ring_by_token", {
+        p_qr_token: qrToken,
+        p_guest_message: msg,
+        p_guest_message_encrypted: encrypted,
+        p_user_agent_hash: hash
+      });
+      if (res.error) throw res.error;
+      var ring = Array.isArray(res.data) ? res.data[0] : res.data;
       
-      // UI Feedback: Success
       hideLoading();
       playGuestChime();
-
-      if (inlineSuccess) {
-        inlineSuccess.classList.add("visible");
-        setTimeout(function() {
-          inlineSuccess.classList.remove("visible");
-        }, 3000);
+      if (statusSuccess) {
+        statusSuccess.classList.add("visible");
+        setTimeout(() => statusSuccess.classList.remove("visible"), 3000);
       }
-
-      Utils.showToast(I18n.t("ring_button_sent"), "success", 3500, { position: "top-left" });
-      Utils.vibrate([50, 50, 100]);
-      scheduleRingUiReset();
-
-      var liveRepliesEnabled = !!(CONFIG.FEATURE_FLAGS && CONFIG.FEATURE_FLAGS.guestLiveReplies);
-      if (liveRepliesEnabled) {
-        startReplyWatcher(ringData.id);
-      }
-
-      timestampDisplay.textContent = Utils.formatDate(new Date());
-     } catch (err) {
-       hideLoading();
-       resetRingUiState();
-       console.error("Ring error:", err);
-       Utils.showToast(err.message || I18n.t("error_generic"), "error");
-      }
+      
+      Utils.vibrate([50, 100]);
+      ringResetTimer = setTimeout(resetUi, RING_ACTIVE_MS);
+      
+      var liveReplies = !!(CONFIG.FEATURE_FLAGS && CONFIG.FEATURE_FLAGS.guestLiveReplies);
+      if (liveReplies) startReplySubscription(ring.id);
+      
+      if (timestampDisplay) timestampDisplay.textContent = new Date().toLocaleTimeString();
+    } catch (err) {
+      hideLoading();
+      resetUi();
+      Utils.showToast("Transmission Failed", "error");
+    }
   });
 
-  // Dropdown Toggle Logic
-  var toggleBtn = document.getElementById("message-toggle-btn");
-  var drawer = document.getElementById("message-drawer");
-
-  if (toggleBtn && drawer) {
-    toggleBtn.addEventListener("click", function() {
-      var isVisible = drawer.classList.contains("visible");
-      drawer.classList.toggle("visible", !isVisible);
-      toggleBtn.classList.toggle("active", !isVisible);
-      toggleBtn.textContent = isVisible ? "+" : "x";
-      
-      if (!isVisible) {
-        ringBtnText.setAttribute("data-i18n", "send_button");
-      } else {
-        ringBtnText.setAttribute("data-i18n", "ring_button");
-      }
+  if (messageToggle && messageDrawer) {
+    messageToggle.addEventListener("click", function() {
+      var visible = messageDrawer.classList.toggle("visible");
+      messageToggle.classList.toggle("active", visible);
+      messageToggle.textContent = visible ? "×" : "+";
+      ringBtnText.setAttribute("data-i18n", visible ? "send_button" : "ring_button");
       I18n.apply();
       Utils.vibrate([10]);
     });
   }
 
-  function playGuestChime() {
-    try {
-      var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3");
-      audio.volume = 0.4;
-      audio.play().catch(function() {});
-    } catch (_e) {}
+  if (infoTrigger && secureModal) {
+    infoTrigger.addEventListener("click", () => secureModal.classList.add("visible"));
+  }
+  if (modalClose) {
+    modalClose.addEventListener("click", () => secureModal.classList.remove("visible"));
   }
 
-  function playResponseChime() {
-    try {
-      var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3");
-      audio.volume = 0.5;
-      audio.play().catch(function() {});
-    } catch (_e) {}
-  }
+  function playGuestChime() { try { new Audio("https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3").play(); } catch (e) {} }
+  function playResponseChime() { try { new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3").play(); } catch (e) {} }
 
-  document.querySelectorAll('[data-action="retry-capture"]').forEach(function(el) {
-    el.addEventListener("click", function() {
-      stopReplyWatcher();
-      resetRingUiState();
-      if (inlineError) inlineError.classList.remove("visible");
-      if (actionBar) actionBar.style.display = "flex";
-      resolvedDoor = null;
-      ringBtn.disabled = true;
-      resolveQrToken();
+  document.querySelectorAll('[data-action="retry-capture"]').forEach(el => {
+    el.addEventListener("click", () => {
+      stopReplySubscription();
+      resetUi();
+      statusError.classList.remove("visible");
+      actionBar.style.display = "flex";
+      resolve();
     });
   });
 
-  // Instruction Modal Logic
-  var infoTrigger = document.getElementById("info-modal-trigger");
-  var infoModal = document.getElementById("instruction-modal");
-  var closeModalBtn = document.getElementById("close-modal-btn");
-
-  if (infoTrigger && infoModal) {
-    infoTrigger.addEventListener("click", function() {
-      infoModal.classList.add("visible");
-      Utils.vibrate([20]);
-    });
-  }
-
-  if (closeModalBtn && infoModal) {
-    closeModalBtn.addEventListener("click", function() {
-      infoModal.classList.remove("visible");
-    });
-    infoModal.addEventListener("click", function(e) {
-      if (e.target === infoModal) infoModal.classList.remove("visible");
-    });
-  }
-
-  window.addEventListener("beforeunload", function() {
-    stopReplyWatcher();
-    resetRingUiState();
-  });
-
-  setInterval(function() {
-    if (timestampDisplay.textContent) {
-      timestampDisplay.textContent = Utils.formatDate(new Date());
-    }
-  }, 60000);
-
+  window.addEventListener("beforeunload", stopReplySubscription);
 })();
+

@@ -548,83 +548,87 @@
     <div class="bg-orb bg-orb-1"></div>
     <div class="bg-orb bg-orb-2"></div>
 
-    <div class="header-minimal">
-        <div class="logo-sm">QR Doorbell</div>
-        <div class="status-dot" id="status-dot"></div>
-    </div>
+    <div class="app-shell animate-fade-in">
+        <header class="minimal-header">
+            <div class="app-logo" data-i18n="app_name">QR Doorbell</div>
+            <div class="connection-status" id="status-dot"></div>
+        </header>
 
-    <div class="offline-toast" id="offline-indicator">
-        <span data-i18n="offline_message">System Offline</span>
-    </div>
-
-    <div class="guest-container" role="main">
-        <div class="location-header">
-            <div class="location-badge">
-                <span aria-hidden="true">&#128205;</span>
-                <span id="location-name" data-i18n="visitor_welcome">Visitor Welcome</span>
-            </div>
-            <h1 class="location-title" data-i18n="secure_entry">Secure Entry Point</h1>
+        <div class="offline-banner" id="offline-indicator">
+            <span data-i18n="offline_message">Network Interrupted</span>
         </div>
 
-        <div id="main-form" class="guest-form">
-            <div class="status-strip">
-                <div id="encryption-indicator" class="encryption-badge" style="display:none;">
-                    <span aria-hidden="true">&#128274;</span>
-                    <span data-i18n="encrypted">End-to-End Encrypted</span>
-                </div>
-                <button class="info-trigger interactive" id="info-modal-trigger" aria-label="Security Info">i</button>
-            </div>
-
-            <div class="message-panel" id="message-drawer">
-                <textarea id="message" class="form-textarea-premium interactive" data-i18n-placeholder="visitor_memo" placeholder="Visitor memo (optional)" rows="3" maxlength="500"></textarea>
-                <div class="char-counter" id="char-counter">0 / 500</div>
-            </div>
-
-            <div class="action-area">
-                <div class="action-grid" id="action-bar">
-                    <button class="btn-message-toggle interactive" id="message-toggle-btn" aria-label="Add message">+</button>
-                    <div class="ring-btn-container" id="ring-container" style="flex:1;">
-                        <div class="ring-pulse"></div>
-                        <button id="ring-btn" class="btn-ring-main interactive" data-action="send-ring">
-                            <span id="ring-btn-text" data-i18n="ring_button">Ring Doorbell</span>
-                        </button>
+        <main class="hero-container">
+            <div class="entry-card">
+                <div class="entry-header">
+                    <div class="location-tag">
+                        <span class="geo-icon"></span>
+                        <span id="location-name" data-i18n="visitor_welcome">Secure Node</span>
                     </div>
+                    <h1 class="entry-title" data-i18n="guest_title">Smart Entry</h1>
                 </div>
 
-                <div id="inline-error" class="inline-state">
-                    <div class="inline-status-msg error">
-                        <span id="error-text">Missing QR token</span>
+                <div id="main-interface" class="interface-stack">
+                    <div class="security-strip">
+                        <div id="encryption-indicator" class="secure-badge" style="display:none;">
+                            <span class="lock-icon"></span>
+                            <span data-i18n="encrypted">Secure Connection</span>
+                        </div>
+                        <button class="info-toggle" id="info-trigger" aria-label="Security Details">i</button>
                     </div>
-                    <button class="btn-retry interactive" data-action="retry-capture" aria-label="Retry">&#8635;</button>
-                </div>
 
-                <div id="inline-success" class="inline-state">
-                    <div class="inline-status-msg success">
-                        <span data-i18n="ring_button_sent">Signal Transmitted</span>
+                    <div class="input-panel" id="message-drawer">
+                        <textarea id="message" class="text-area-premium" data-i18n-placeholder="visitor_memo" placeholder="Optional note for occupant" rows="3" maxlength="500"></textarea>
+                        <div class="character-count" id="char-counter">0 / 500</div>
                     </div>
+
+                    <div class="action-center">
+                        <div class="signal-wrapper" id="action-bar">
+                            <button class="toggle-input" id="message-toggle" aria-label="Attach note">+</button>
+                            <div class="ring-core" id="ring-container">
+                                <div class="ping-wave"></div>
+                                <button id="ring-btn" class="btn-signal-primary" data-action="send-ring">
+                                    <span id="ring-btn-text" data-i18n="ring_button">Signal</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="status-error" class="feedback-state error">
+                            <div class="feedback-content">
+                                <span id="error-text">Token Missing</span>
+                            </div>
+                            <button class="btn-retry" data-action="retry-capture">&#8635;</button>
+                        </div>
+
+                        <div id="status-success" class="feedback-state success">
+                            <div class="feedback-content">
+                                <span data-i18n="ring_button_sent">Signal Dispatched</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="timestamp-view" class="meta-footer"></div>
                 </div>
             </div>
-
-            <div id="timestamp-display" class="timestamp-footer"></div>
-        </div>
+        </main>
     </div>
 
-    <div id="reply-drawer" class="reply-card-professional">
-        <div class="reply-header">
-            <div class="live-indicator">
-                <div class="live-dot"></div>
+    <div id="reply-panel" class="response-card-fixed">
+        <div class="response-header">
+            <div class="live-tag">
+                <div class="live-pulse"></div>
                 <span data-i18n="reply_inbound">Live Response</span>
             </div>
-            <div class="reply-time" id="reply-timestamp"></div>
+            <div class="response-time" id="reply-timestamp"></div>
         </div>
-        <div id="reply-text" class="reply-body" data-i18n="reply_waiting">Connecting to owner...</div>
+        <div id="reply-text" class="response-body" data-i18n="reply_waiting">Waiting for occupant...</div>
     </div>
 
-    <div id="instruction-modal" class="modal-overlay">
-        <div class="modal-content glass-card animate-scale-in">
-            <h2 data-i18n="how_it_works">Secure Entry</h2>
-            <p data-i18n="instruction_desc">This entry point is protected by end-to-end encryption. Your signal is sent directly to the owner. Keep this screen open to receive live replies.</p>
-            <button class="btn btn-primary btn-full interactive" id="close-modal-btn">Got it</button>
+    <div id="secure-modal" class="overlay-blur">
+        <div class="modal-surface animate-scale-in">
+            <h2 data-i18n="how_it_works">Security Overview</h2>
+            <p data-i18n="instruction_desc">This entry point uses end-to-end encryption. Your request is transmitted directly to the authorized occupant. Stay on this screen for an immediate response.</p>
+            <button class="btn btn-primary btn-full" id="modal-close">Understood</button>
         </div>
     </div>
 
