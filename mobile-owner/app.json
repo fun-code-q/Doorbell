@@ -49,7 +49,15 @@
         }
       ],
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow QR Vault to save your QR codes to your photo library.",
+          "savePhotosPermission": "Allow QR Vault to save your QR codes to your photo library.",
+          "isStandard": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

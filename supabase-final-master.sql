@@ -358,6 +358,83 @@ SECURITY DEFINER
 SET search_path TO public, pg_temp
 SET row_security = off;
 
+-- 5a. GUEST-SIDE RPC FUNCTIONS
+-- These allow unauthenticated (anon) guests to resolve tokens and ring the bell securely
+
+DROP FUNCTION IF EXISTS public.resolve_qr_token(TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION public.resolve_qr_token(p_qr_token TEXT)
+RETURNS TABLE(door_point_id UUID, door_name TEXT, house_id UUID) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT dp.id, dp.name, dp.house_id
+  FROM public.door_points dp
+  WHERE dp.qr_token = p_qr_token
+    AND dp.is_active = true;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off;
+
+DROP FUNCTION IF EXISTS public.create_doorbell_ring_by_token(TEXT, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION public.create_doorbell_ring_by_token(
+  p_qr_token TEXT,
+  p_guest_message TEXT DEFAULT NULL,
+  p_guest_message_encrypted BOOLEAN DEFAULT false,
+  p_photo_url TEXT DEFAULT NULL,
+  p_photo_encrypted BOOLEAN DEFAULT false,
+  p_user_agent_hash TEXT DEFAULT NULL
+)
+RETURNS TABLE(id UUID, house_id UUID, door_point_id UUID, created_at TIMESTAMPTZ) AS $$
+DECLARE
+  v_dp_id UUID;
+  v_house_id UUID;
+  v_door_name TEXT;
+  v_new_id UUID;
+BEGIN
+  -- 1. Resolve token to door
+  SELECT dp.id, dp.house_id, dp.name
+  INTO v_dp_id, v_house_id, v_door_name
+  FROM public.door_points dp
+  WHERE dp.qr_token = p_qr_token AND dp.is_active = true;
+
+  IF v_dp_id IS NULL THEN
+    RAISE EXCEPTION 'Invalid or inactive QR code';
+  END IF;
+
+  -- 2. Insert ring
+  INSERT INTO public.doorbell_rings (
+    house_id,
+    door_point_id,
+    door_location,
+    guest_message,
+    guest_message_encrypted,
+    photo_url,
+    photo_encrypted,
+    ip_hash -- use user_agent_hash as proxy for ip_hash if needed or leave empty
+  )
+  VALUES (
+    v_house_id,
+    v_dp_id,
+    v_door_name,
+    p_guest_message,
+    p_guest_message_encrypted,
+    p_photo_url,
+    p_photo_encrypted,
+    p_user_agent_hash
+  )
+  RETURNING doorbell_rings.id INTO v_new_id;
+
+  RETURN QUERY
+  SELECT r.id, r.house_id, r.door_point_id, r.created_at
+  FROM public.doorbell_rings r
+  WHERE r.id = v_new_id;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off;
+
 -- 6. ROW LEVEL SECURITY (Flattened Subqueries)
 ALTER TABLE public.houses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.house_members ENABLE ROW LEVEL SECURITY;
@@ -474,3 +551,8 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.door_points;
   END IF;
 END $$;
+CREATE POLICY audit_log_delete_owner ON public.audit_log 
+FOR DELETE TO authenticated 
+USING (
+  public.is_house_owner(house_id)
+);

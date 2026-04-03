@@ -18,8 +18,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 
 import { useAuth, PASSPHRASE_KEY } from '../../hooks/useAuth';
 import { useSharedDashboard } from './_layout';
@@ -90,18 +91,26 @@ export default function DoorsScreen() {
 
   const handleSaveQR = async () => {
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        showToast('Permission required to save images', 'error');
-        return;
-      }
-      const uri = await qrRef.current?.capture?.();
-      if (uri) {
+      if (!qrRef.current) throw new Error('Ref missing');
+
+      const uri = await captureRef(qrRef.current, {
+        format: 'png',
+        quality: 1.0,
+      });
+
+      if (!uri) throw new Error('Capture failed');
+
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status === 'granted') {
         await MediaLibrary.saveToLibraryAsync(uri);
-        showToast('QR Code saved to gallery!', 'success');
+        showToast('QR Code saved to Gallery!', 'success');
+      } else {
+        // Fallback to Sharing if permission is restricted
+        await Sharing.shareAsync(uri);
       }
     } catch (err) {
-      showToast('Failed to save QR code', 'error');
+      console.error('QR Save Error:', err);
+      showToast('Save failed—please try again.', 'error');
     }
   };
 
@@ -260,7 +269,7 @@ export default function DoorsScreen() {
             
             <View style={styles.qrContainer}>
               <ViewShot ref={qrRef} options={{ format: 'png', quality: 1.0 }}>
-                <View style={styles.qrBg}>
+                <View style={styles.qrBg} collapsable={false}>
                   <QRCode
                     value={`${GUEST_BASE_URL}?t=${selectedDoor?.qr_token}`}
                     size={220}
