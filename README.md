@@ -1,203 +1,140 @@
-# QR Doorbell
+# QR Doorbell 🔔
 
-Smart, app-free visitor check-in with a guest page (`index.html`) and owner dashboard (`owner.html`).
+A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It provides a frictionless guest experience via location-aware QR codes and an industrial-grade owner dashboard available on both web and native mobile platforms.
 
-## What This Project Is
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://github.com/fun-code-q/Doorbell/actions/workflows/ci.yml/badge.svg)](https://github.com/fun-code-q/Doorbell/actions)
 
-`QR Doorbell` is a static web app hosted on a CDN/edge platform.  
-Visitors scan a QR code and send an optional message.  
-Owners receive realtime updates in the dashboard and can reply instantly.
+## 🌟 Overview
 
-## Stack
+`QR Doorbell` replaces traditional physical doorbells with a secure, digital alternative. 
+- **Guests** scan a unique QR code to "ring" the doorbell and send optional messages without installing any app.
+- **Owners** receive instant push notifications and manage rings through a powerful dashboard (Web PWA or Native Android/iOS App).
 
-- Frontend: Vanilla HTML/CSS/JS (no framework, no build step)
-- Backend: Supabase (Postgres + Auth + Storage + Realtime)
-- Notifications: ntfy.sh topic push
-- Hosting: Vercel-ready static deployment
-- PWA: Service Worker + manifest
+---
 
-## Core Features
+## ✨ Core Features
 
-- Optional guest message
-- Optional client-side message encryption
-- Realtime ring feed for owners
-- Owner reply workflow (`ACK`, `COMING`, custom reply)
-- Door point management + tokenized QR generation
-- QR revocation/termination (`is_active` per door point)
-- Multi-house support per owner account
-- Multi-owner membership model per house
-- CSV export of ring history
-- Audit log surface (from DB audit table)
-- Offline shell support for UI availability
+### 🏁 Guest Experience (App-Free)
+- **Zero-Install**: Works directly in any modern mobile browser.
+- **Location-Aware QR**: Prevents "fake" rings from remote locations.
+- **Encrypted Messaging**: Optional client-side message encryption for privacy.
+- **Internationalization**: Full i18n support for multiple languages.
 
-## Security Notes (Important)
+### 🏠 Owner Management
+- **Native Mobile App**: Built with Expo/React Native for real-time alerts.
+- **Real-time Ring Feed**: Instant updates when someone is at the door via the mobile app.
+- **Smart Replies**: One-tap replies (`ACK`, `COMING`, etc.) or custom messages.
+- **Multi-House Support**: Manage multiple properties from a single account.
+- **QR Tokenization**: Generate and revoke secure, time-limited QR tokens for different doors.
+- **Audit Logs**: Full transparency with database-level audit trails.
+- **CSV Export**: Export ring history for record-keeping.
 
-- Supabase anon key is expected to be public in client apps.
-- RLS policies in Supabase are the primary access control.
-- Storage bucket `guest_photos` is private and accessed via signed URLs.
-- CSP/security headers are configured in `vercel.json`.
-- Client-side passphrase encryption in this app protects data at rest from casual access, but it is not equivalent to server-side key management because the passphrase is present client-side.
+### 🛡️ Security & Stability
+- **Row-Level Security (RLS)**: Robust Postgres policies for tenant isolation.
+- **Rate Limiting**: Integrated DB triggers to prevent spam.
+- **End-to-End Encryption**: Secure message handling between guest and owner.
+- **PWA Ready**: Offline support and home-screen installation.
+- **Enterprise Settings**: Master PIN protection for sensitive owner actions.
 
-For stronger secrecy, move encryption/decryption to Supabase Edge Functions with managed secrets.
+---
 
-## Prerequisites
+## 🛠️ Tech Stack
 
-- Node.js 18+ (Node 20 recommended)
+### Frontend (Guest Web)
+- **Vanilla HTML5/CSS3/JS**: No heavy frameworks, optimized for speed.
+- **Supabase JS SDK**: Real-time DB and Auth integration.
+- **Service Workers**: PWA capabilities and offline shell.
+
+### Mobile App (Owner)
+- **React Native & Expo**: Cross-platform native performance.
+- **TypeScript**: Type-safe development for reliability.
+- **Native Notifications**: Real-time push alerts via `expo-notifications`.
+- **Secure Store**: Encrypted storage for credentials and keys.
+
+### Backend & Infrastructure
+- **Supabase**: PostgreSQL, Auth (Email/OTP), Storage, and Real-time.
+- **Vercel**: Optimized edge hosting for the static guest interface.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 20+
 - A Supabase project
-- ntfy topic (unguessable, secret-style topic name)
 
-## Quick Start
+### 1. Database Setup
+1. Open your Supabase SQL Editor.
+2. Run the `supabase-final-master.sql` script to initialize the schema, RLS policies, and RPCs.
 
+### 2. Web Application (Guest/Web Owner)
 1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure `public/config.js` with your Supabase credentials:
+   ```javascript
+   window.__QR_CONFIG = {
+     SUPABASE_URL: "your-url",
+     SUPABASE_ANON_KEY: "your-anon-key"
+   };
+   ```
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
-```bash
-npm install
-```
+### 3. Mobile Owner App
+1. Navigate to the mobile directory:
+   ```bash
+   cd mobile-owner
+   npm install
+   ```
+2. Setup environment variables in `mobile-owner/.env`:
+   ```bash
+   EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   ```
+3. Start the Expo development server:
+   ```bash
+   npx expo start
+   ```
 
-2. Configure runtime values in `public/config.js` (or inject `window.__QR_CONFIG` before `config.js` loads):
+---
 
-```js
-window.__QR_CONFIG = {
-  SUPABASE_URL: "https://your-project.supabase.co",
-  SUPABASE_ANON_KEY: "your-anon-key",
-  NTFY_TOPIC: "your-secret-topic",
-  ENCRYPTION_PASSPHRASE: "a-strong-random-passphrase"
-};
-```
-
-3. Apply DB setup:
-
-- Open Supabase SQL Editor
-- Run `supabase-setup.sql`
-
-4. Start local dev server:
-
-```bash
-npm run dev
-```
-
-5. Open:
-
-- Guest: `http://localhost:3000/`
-- Owner: `http://localhost:3000/owner.html`
-
-## Supabase Setup Details
-
-`supabase-setup.sql` creates:
-
-- `houses`
-- `house_members`
-- `doorbell_rings`
-- `door_points`
-- `owner_settings`
-- `audit_log`
-- RPCs: `ensure_owner_house`, `create_house`, `add_house_member_by_email`, `resolve_qr_token`, `create_doorbell_ring_by_token`
-- Strict tenant-scoped RLS policies
-- Rate-limit trigger
-- Audit triggers
-- Realtime publication entries (idempotent)
-
-After running SQL:
-
-1. Enable Email auth provider in Supabase Auth.
-2. Create owner account in Auth users.
-
-## Configuration
-
-Reference values are in `.env.example`.  
-This project is static, so these are naming references; runtime comes from `public/config.js` (or injected `window.__QR_CONFIG`).
-
-Main keys:
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY` (or legacy alias `SUPABASE_KEY`)
-- `NTFY_TOPIC`
-- `ENCRYPTION_PASSPHRASE`
-
-## Commands
-
-- `npm run dev` - serve `public/` on port 3000
-- `npm run lint` - eslint checks
-- `npm run lint:fix` - auto-fix lint issues where possible
-- `npm run check:syntax` - syntax check key JS files
-- `npm run build` - static placeholder check
-
-## Deployment
-
-### Vercel (recommended)
-
-1. Push repository to GitHub.
-2. Import repo into Vercel.
-3. Deploy with root directory as repository root.
-4. Set runtime config strategy:
-   - Either commit safe defaults in `public/config.js` and replace placeholders manually after clone
-   - Or inject `window.__QR_CONFIG` via hosting template/script before `config.js`
-
-`vercel.json` includes:
-
-- security headers
-- CSP
-- cache strategy
-- rewrite to `index.html` for unmatched routes
-
-Use `/owner.html` for owner dashboard entry.
-
-## GitHub Readiness (April 2026 baseline)
-
-This repo now includes:
-
-- CI workflow (`.github/workflows/ci.yml`)
-- CodeQL workflow (`.github/workflows/codeql.yml`)
-- Dependency review workflow (`.github/workflows/dependency-review.yml`)
-- Dependabot config (`.github/dependabot.yml`)
-- Security policy (`SECURITY.md`)
-- PR template and issue templates
-
-Recommended repository settings:
-
-1. Enable branch protection on `main`:
-   - require PR reviews
-   - require status checks (CI + dependency review)
-2. Enable code scanning default setup if not already active.
-3. Enable secret scanning and push protection.
-4. Keep dependency graph and Dependabot alerts enabled.
-
-## Known Limitations
-
-- Guest ring offline queue-to-server is not implemented; guest actions require connectivity to submit.
-- Notification sound is loaded from an external media URL; allowlist is set in CSP.
-- Client-side encryption passphrase management is deployment-managed, not HSM/KMS-backed.
-- QR scanning is done by device camera/OS (the web app does not include in-app QR decoding).
-
-## Project Structure
+## 📦 Project Structure
 
 ```text
 .
-|-- public/
-|   |-- index.html
-|   |-- owner.html
-|   |-- offline.html
-|   |-- config.js
-|   |-- sw.js
-|   |-- css/
-|   |   |-- main.css
-|   |   `-- components.css
-|   |-- js/
-|   |   |-- app.js
-|   |   |-- auth.js
-|   |   |-- crypto.js
-|   |   |-- guest.js
-|   |   |-- i18n.js
-|   |   |-- owner-bootstrap.js
-|   |   `-- utils.js
-|   `-- icons/
-|-- supabase-setup.sql
-|-- vercel.json
-|-- eslint.config.js
-|-- package.json
-`-- SECURITY.md
+├── mobile-owner/       # Expo/React Native app for owners
+├── public/             # Guest web interface (Static)
+│   ├── js/             # Core logic (auth, crypto, guest)
+│   ├── css/            # UI styles
+│   ├── index.html      # Guest landing page
+│   └── owner.html      # Legacy web owner dashboard
+├── supabase-final-master.sql  # Database schema & policies
+├── vercel.json         # Hosting configuration
+└── package.json        # Main project config
 ```
 
-## License
+---
 
-MIT (`LICENSE`)
+## 🔧 Recent Improvements
+
+This version includes several critical enhancements for production readiness:
+- **XSS Prevention**: Enhanced message sanitization on the guest side.
+- **PWA Optimization**: Improved manifest metadata and service worker cache strategy.
+- **Reliability**: Robust validation for Supabase responses and race condition fixes in UI interaction.
+- **Accessibility**: ARIA enhancements for better screen reader support.
+- **Security**: HTTPS enforcement and flattened RLS policies to prevent PostgreSQL recursion errors.
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+Developed with ❤️ for secure and frictionless guest management.

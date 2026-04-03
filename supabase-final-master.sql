@@ -98,8 +98,6 @@ CREATE TABLE IF NOT EXISTS public.doorbell_rings (
   guest_name TEXT,
   guest_message TEXT,
   guest_message_encrypted BOOLEAN DEFAULT false,
-  photo_url TEXT,
-  photo_encrypted BOOLEAN DEFAULT false,
   status TEXT DEFAULT 'waiting' CHECK (status IN ('waiting', 'acknowledged', 'responded', 'dismissed')),
   owner_reply TEXT DEFAULT '',
   replied_at TIMESTAMPTZ,
@@ -381,8 +379,6 @@ CREATE OR REPLACE FUNCTION public.create_doorbell_ring_by_token(
   p_qr_token TEXT,
   p_guest_message TEXT DEFAULT NULL,
   p_guest_message_encrypted BOOLEAN DEFAULT false,
-  p_photo_url TEXT DEFAULT NULL,
-  p_photo_encrypted BOOLEAN DEFAULT false,
   p_user_agent_hash TEXT DEFAULT NULL
 )
 RETURNS TABLE(id UUID, house_id UUID, door_point_id UUID, created_at TIMESTAMPTZ) AS $$
@@ -409,9 +405,7 @@ BEGIN
     door_location,
     guest_message,
     guest_message_encrypted,
-    photo_url,
-    photo_encrypted,
-    ip_hash -- use user_agent_hash as proxy for ip_hash if needed or leave empty
+    ip_hash
   )
   VALUES (
     v_house_id,
@@ -419,8 +413,6 @@ BEGIN
     v_door_name,
     p_guest_message,
     p_guest_message_encrypted,
-    p_photo_url,
-    p_photo_encrypted,
     p_user_agent_hash
   )
   RETURNING doorbell_rings.id INTO v_new_id;

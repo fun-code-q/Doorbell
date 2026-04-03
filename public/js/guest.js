@@ -209,8 +209,6 @@
          p_qr_token: qrToken,
          p_guest_message: messageText,
          p_guest_message_encrypted: messageEncrypted,
-         p_photo_url: null,
-         p_photo_encrypted: false,
          p_user_agent_hash: userAgentHash
        });
        if (insertResult.error) throw insertResult.error;
@@ -229,7 +227,6 @@
          throw new Error("Failed to create doorbell ring - no ID returned");
        }
 
-      /* ntfy removal — standalone APK uses Supabase Realtime now */
       
       // UI Feedback: Success Chime & Stop Animation
       hideLoading();

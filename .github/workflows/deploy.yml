@@ -26,14 +26,13 @@ jobs:
 
       - name: Inject Secrets into config.js
         run: |
-          sed -i "s|https://REPLACE_WITH_YOUR_PROJECT.supabase.co|${{ secrets.SUPABASE_URL }}|g" public/config.js
+          sed -i "s|REPLACE_WITH_YOUR_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" public/config.js
           sed -i "s|REPLACE_WITH_YOUR_ANON_KEY|${{ secrets.SUPABASE_ANON_KEY }}|g" public/config.js
-          sed -i "s|smart_doorbell_REPLACE_WITH_SECRET_ID|${{ secrets.NTFY_TOPIC }}|g" public/config.js
-          sed -i "s|CHANGE_THIS_TO_A_STRONG_RANDOM_PASSPHRASE_v3|${{ secrets.ENCRYPTION_PASSPHRASE }}|g" public/config.js
+          sed -i "s|REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE|${{ secrets.ENCRYPTION_PASSPHRASE }}|g" public/config.js
 
       - name: Verify Secret Injection (Safe Check)
         run: |
-          if grep -q "REPLACE_WITH_YOUR_PROJECT" public/config.js; then
+          if grep -q "REPLACE_WITH_YOUR_SUPABASE_URL" public/config.js || grep -q "REPLACE_WITH_YOUR_ANON_KEY" public/config.js || grep -q "REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE" public/config.js; then
             echo "Error: Secrets were not properly injected!"
             exit 1
           fi

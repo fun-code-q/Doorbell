@@ -18,14 +18,13 @@
     SUPABASE_ANON_KEY: resolvedSupabaseAnonKey,
     SUPABASE_KEY: runtime.SUPABASE_KEY || runtime.SUPABASE_ANON_KEY || resolvedSupabaseAnonKey,
 
-    /* ntfy.sh — removed for standalone APK */
 
     /* Encryption — a shared passphrase for encrypting messages and images.
        This should be set to a strong, unique value per deployment.
        The owner dashboard uses this to decrypt messages.
        WARNING: If this is public, encryption provides obfuscation only.
        For true security, use Supabase Edge Functions for server-side encryption. */
-    ENCRYPTION_PASSPHRASE: runtime.ENCRYPTION_PASSPHRASE || "DoorbellSecure_2026_Vault",
+    ENCRYPTION_PASSPHRASE: runtime.ENCRYPTION_PASSPHRASE || "REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE",
 
     /* App */
     APP_VERSION: "3.1.0",
@@ -39,10 +38,6 @@
     INACTIVITY_TIMEOUT: 900000,       /* 15 minutes */
     SESSION_TIMEOUT_WARNING: 60000,   /* 1 minute warning */
 
-    /* Image */
-    IMAGE_MAX_WIDTH: 1200,
-    IMAGE_MAX_HEIGHT: 1200,
-    IMAGE_QUALITY: 0.8,
 
     /* Feature Flags */
     FEATURE_FLAGS: {
@@ -52,8 +47,7 @@
       auditLog: true,
       darkMode: true,
       offlineMode: true,
-      encryption: true,
-      enableImages: true          /* Enable client-side encryption for messages and images */
+      encryption: true
     },
 
     /* Environment Detection */
@@ -68,7 +62,7 @@
       var key = (CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY || "").trim();
       var urlValid = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url);
       var keyLooksLikeJwt = /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(key);
-      var usingPlaceholders = url.indexOf("REPLACE_WITH_YOUR_SUPABASE_URL") !== -1 || key.indexOf("REPLACE_WITH_YOUR_ANON_KEY") !== -1;
+      var usingPlaceholders = url.indexOf("REPLACE_WITH_YOUR_SUPABASE_URL") !== -1 || key.indexOf("REPLACE_WITH_YOUR_ANON_KEY") !== -1 || key.indexOf("REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE") !== -1;
       return (
         urlValid &&
         keyLooksLikeJwt &&
