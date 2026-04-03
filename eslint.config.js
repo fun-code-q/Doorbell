@@ -64,7 +64,9 @@ export default [
         clients: "readonly",
         fetch: "readonly",
         Response: "readonly",
-        URL: "readonly"
+        URL: "readonly",
+        location: "readonly",
+        console: "readonly"
       }
     },
     rules: {
