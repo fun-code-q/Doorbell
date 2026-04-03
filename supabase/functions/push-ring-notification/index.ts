@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
     priority: 'high',
     channelId: 'doorbell-rings',
     data: {
+      type: 'ring_call',
       ring_id: ring.id,
       house_id: ring.house_id,
       door_location: doorLocation,

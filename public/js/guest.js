@@ -377,7 +377,7 @@
       var isVisible = drawer.classList.contains("visible");
       drawer.classList.toggle("visible", !isVisible);
       toggleBtn.classList.toggle("active", !isVisible);
-      toggleBtn.textContent = isVisible ? "＋" : "×";
+      toggleBtn.textContent = isVisible ? "+" : "x";
       
       if (!isVisible) {
         ringBtnText.setAttribute("data-i18n", "send_button");

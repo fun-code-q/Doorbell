@@ -74,7 +74,7 @@ export default function QRFactoryScreen() {
       const uri = await (viewShotRef.current as any).capture();
       const asset = await MediaLibrary.createAssetAsync(uri);
       await MediaLibrary.createAlbumAsync('QR Vault', asset, false);
-      showToast(`QR saved to gallery: ${selectedDoor.name}`, 'success');
+      showToast(`QR saved to your gallery`, 'success');
     } catch (err) {
       showToast('Failed to save QR code', 'error');
     } finally {

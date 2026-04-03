@@ -7,7 +7,18 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from './config';
 
-export const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+export const SUPABASE_CONFIG_MISSING = !CONFIG.hasSupabaseConfig();
+
+// Prevent hard crashes at startup when env vars are missing in cloud builds.
+// We still surface a clear UI error in RootLayout.
+const safeSupabaseUrl = SUPABASE_CONFIG_MISSING
+  ? 'https://placeholder.supabase.co'
+  : CONFIG.SUPABASE_URL;
+const safeSupabaseAnonKey = SUPABASE_CONFIG_MISSING
+  ? 'sb_publishable_placeholder'
+  : CONFIG.SUPABASE_ANON_KEY;
+
+export const supabase = createClient(safeSupabaseUrl, safeSupabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
