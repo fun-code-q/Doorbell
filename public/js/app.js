@@ -622,7 +622,9 @@ const App = {
   },
 
   getGuestUrl: function(doorPoint) {
-    return window.location.origin + "/index.html?t=" + encodeURIComponent(doorPoint.qr_token);
+    var url = new URL("index.html", window.location.href);
+    url.searchParams.set("t", doorPoint.qr_token);
+    return url.toString();
   },
 
   generateQRCodeForDoorPoint: function(doorPoint) {

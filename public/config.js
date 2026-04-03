@@ -6,13 +6,17 @@
 (function() {
   /* Runtime override: if window.__QR_CONFIG exists, use it (for Vercel env injection, etc.) */
   var runtime = window.__QR_CONFIG || {};
+  var defaultSupabaseUrl = "REPLACE_WITH_YOUR_SUPABASE_URL";
+  var defaultSupabaseAnonKey = "REPLACE_WITH_YOUR_ANON_KEY";
+  var resolvedSupabaseUrl = runtime.SUPABASE_URL || defaultSupabaseUrl;
+  var resolvedSupabaseAnonKey = runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || defaultSupabaseAnonKey;
 
   const CONFIG = {
     /* Supabase — these MUST be set before use */
-    SUPABASE_URL: runtime.SUPABASE_URL || "https://ebvotxcyfbzzoisgkdui.supabase.co",
+    SUPABASE_URL: resolvedSupabaseUrl,
     /* Keep both names for backwards compatibility with existing code */
-    SUPABASE_ANON_KEY: runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVib3R4Y3lmYnp6b2lzZ2tkdWkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0MzU0MTI2MSwiZXhwIjoyMDU5MTE3MjYxfQ.S6_U7M9G_1zX-T6Y0N8x5Z8Pq_H1T8z8Pq_H1T8z8Pq",
-    SUPABASE_KEY: runtime.SUPABASE_KEY || runtime.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVib3R4Y3lmYnp6b2lzZ2tkdWkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0MzU0MTI2MSwiZXhwIjoyMDU5MTE3MjYxfQ.S6_U7M9G_1zX-T6Y0N8x5Z8Pq_H1T8z8Pq_H1T8z8Pq",
+    SUPABASE_ANON_KEY: resolvedSupabaseAnonKey,
+    SUPABASE_KEY: runtime.SUPABASE_KEY || runtime.SUPABASE_ANON_KEY || resolvedSupabaseAnonKey,
 
     /* ntfy.sh — removed for standalone APK */
 
@@ -60,9 +64,15 @@
       return !CONFIG.isDevelopment();
     },
     hasSupabaseConfig: function() {
+      var url = (CONFIG.SUPABASE_URL || "").trim();
+      var key = (CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY || "").trim();
+      var urlValid = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url);
+      var keyLooksLikeJwt = /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(key);
+      var usingPlaceholders = url.indexOf("REPLACE_WITH_YOUR_SUPABASE_URL") !== -1 || key.indexOf("REPLACE_WITH_YOUR_ANON_KEY") !== -1;
       return (
-        /^https:\/\/.+\.supabase\.co$/.test(CONFIG.SUPABASE_URL) &&
-        CONFIG.SUPABASE_KEY.indexOf("REPLACE_WITH_YOUR_ANON_KEY") === -1
+        urlValid &&
+        keyLooksLikeJwt &&
+        !usingPlaceholders
       );
     }
   };

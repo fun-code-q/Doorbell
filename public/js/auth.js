@@ -112,6 +112,10 @@ const Auth = {
     return this.session?.access_token || null;
   },
 
+  getOwnerUrl() {
+    return new URL("owner.html", window.location.href).toString();
+  },
+
   setupInactivityTracking() {
     if (this.activityHandler) return;
     this.activityHandler = () => this.resetInactivityTimer();
@@ -134,7 +138,7 @@ const Auth = {
       }
       this.inactivityTimer = setTimeout(async () => {
         await this.signOut("timeout");
-        window.location.href = "/owner.html";
+        window.location.href = this.getOwnerUrl();
       }, timeout);
     }
   },
@@ -202,7 +206,7 @@ const Auth = {
     }
   },
 
-  requireAuth(redirectUrl = "/owner.html") {
+  requireAuth(redirectUrl = "owner.html") {
     if (!this.isAuthenticated()) {
       window.location.href = redirectUrl;
       return false;

@@ -32,11 +32,11 @@
 
   I18n.init();
 
-  if (!CONFIG.hasSupabaseConfig || !CONFIG.hasSupabaseConfig()) {
-    ringBtn.disabled = true;
-    Utils.showToast("System is not configured. Please contact the owner.", "error", 0);
-    return;
-  }
+   if (!CONFIG.hasSupabaseConfig || typeof CONFIG.hasSupabaseConfig !== 'function' || !CONFIG.hasSupabaseConfig()) {
+     ringBtn.disabled = true;
+     Utils.showToast("System is not configured. Please contact the owner.", "error", 0);
+     return;
+   }
 
   supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY || CONFIG.SUPABASE_KEY);
 
@@ -53,28 +53,45 @@
     ringBtn.disabled = true;
   }
 
-  async function resolveQrToken() {
-    if (!qrToken) {
-      setInvalidQrState("Missing QR token");
-      return;
-    }
-    try {
-      var resolved = await supabaseClient.rpc("resolve_qr_token", { p_qr_token: qrToken });
-      if (resolved.error) throw resolved.error;
-      var row = null;
-      if (Array.isArray(resolved.data)) row = resolved.data[0] || null;
-      else row = resolved.data || null;
-      if (!row || !row.door_point_id) {
-        setInvalidQrState("This QR code is invalid or inactive.");
-        return;
-      }
-      resolvedDoor = row;
-      ringBtn.disabled = false;
-    } catch (err) {
-      console.error("QR resolve failed:", err);
-      setInvalidQrState("This QR code is invalid or inactive.");
-    }
-  }
+   async function resolveQrToken() {
+     if (!qrToken) {
+       setInvalidQrState("Missing QR token");
+       return;
+     }
+     try {
+       var resolved = await supabaseClient.rpc("resolve_qr_token", { p_qr_token: qrToken });
+       if (resolved.error) throw resolved.error;
+       
+       // Validate response structure
+       if (!resolved.data) {
+         throw new Error("No data returned from resolve_qr_token");
+       }
+       
+       var row = null;
+       if (Array.isArray(resolved.data)) {
+         if (resolved.data.length === 0) {
+           throw new Error("Empty data array returned from resolve_qr_token");
+         }
+         row = resolved.data[0] || null;
+       } else {
+         row = resolved.data || null;
+       }
+       
+       if (!row) {
+         throw new Error("Invalid data structure returned from resolve_qr_token");
+       }
+       
+       if (!row.door_point_id) {
+         setInvalidQrState("This QR code is invalid or inactive.");
+         return;
+       }
+       resolvedDoor = row;
+       ringBtn.disabled = false;
+     } catch (err) {
+       console.error("QR resolve failed:", err);
+       setInvalidQrState("This QR code is invalid or inactive.");
+     }
+   }
   resolveQrToken();
 
   Utils.registerServiceWorker();
@@ -98,11 +115,26 @@
     return false;
   }
 
-  function sanitizeInput(text) {
-    text = text.replace(URL_PATTERN, "[link removed]");
-    text = text.replace(/<[^>]*>/g, "");
-    return text.trim();
-  }
+   function sanitizeInput(text) {
+     // Remove HTML tags
+     text = text.replace(/<[^>]*>/g, "");
+     
+     // Remove/escape potential XSS vectors
+     text = text.replace(/javascript:/gi, "");
+     text = text.replace(/data:/gi, "");
+     text = text.replace(/vbscript:/gi, "");
+     text = text.replace(/on\w+\s*=/gi, "");
+     
+     // Remove URLs as per security policy
+     text = text.replace(URL_PATTERN, "[link removed]");
+     
+     // Remove suspicious patterns
+     for (var i = 0; i < SUSPICIOUS_PATTERNS.length; i++) {
+       text = text.replace(SUSPICIOUS_PATTERNS[i], "");
+     }
+     
+     return text.trim();
+   }
 
   messageInput.addEventListener("input", function() {
     var val = messageInput.value;
@@ -173,17 +205,29 @@
 
 
 
-      var insertResult = await supabaseClient.rpc("create_doorbell_ring_by_token", {
-        p_qr_token: qrToken,
-        p_guest_message: messageText,
-        p_guest_message_encrypted: messageEncrypted,
-        p_photo_url: null,
-        p_photo_encrypted: false,
-        p_user_agent_hash: userAgentHash
-      });
-      if (insertResult.error) throw insertResult.error;
-      var ringData = Array.isArray(insertResult.data) ? insertResult.data[0] : insertResult.data;
-      if (!ringData || !ringData.id) throw new Error("Failed to create doorbell ring");
+       var insertResult = await supabaseClient.rpc("create_doorbell_ring_by_token", {
+         p_qr_token: qrToken,
+         p_guest_message: messageText,
+         p_guest_message_encrypted: messageEncrypted,
+         p_photo_url: null,
+         p_photo_encrypted: false,
+         p_user_agent_hash: userAgentHash
+       });
+       if (insertResult.error) throw insertResult.error;
+       
+       // Validate response structure
+       if (!insertResult.data) {
+         throw new Error("No data returned from create_doorbell_ring_by_token");
+       }
+       
+       var ringData = Array.isArray(insertResult.data) ? insertResult.data[0] : insertResult.data;
+       if (!ringData) {
+         throw new Error("Invalid data structure returned from create_doorbell_ring_by_token");
+       }
+       
+       if (!ringData.id) {
+         throw new Error("Failed to create doorbell ring - no ID returned");
+       }
 
       /* ntfy removal — standalone APK uses Supabase Realtime now */
       
@@ -219,14 +263,16 @@
         .subscribe();
 
       timestampDisplay.textContent = Utils.formatDate(new Date());
-    } catch (err) {
-      hideLoading();
-      if (ringContainer) ringContainer.classList.remove("is-ringing");
-      console.error("Ring error:", err);
-      setInvalidQrState(err.message || I18n.t("error_generic"));
-      ringSent = false;
-      resolvedDoor = null;
-    }
+     } catch (err) {
+       hideLoading();
+       if (ringContainer) ringContainer.classList.remove("is-ringing");
+       console.error("Ring error:", err);
+       setInvalidQrState(err.message || I18n.t("error_generic"));
+       ringSent = false;
+       resolvedDoor = null;
+       // Re-enable button on error
+       if (ringBtn) ringBtn.disabled = false;
+     }
   });
 
   // Dropdown Toggle Logic

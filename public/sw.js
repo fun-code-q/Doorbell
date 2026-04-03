@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v3.2.2";
+const CACHE_VERSION = "v3.2.3";
 const CACHE_NAME = `qr-doorbell-${CACHE_VERSION}`;
 const OFFLINE_URL = "offline.html";
 
@@ -55,27 +55,43 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
-  );
-  self.clients.claim();
-});
+   event.waitUntil(
+     caches
+       .keys()
+       .then((keys) => {
+         // Keep current cache and up to 2 previous versions
+         return Promise.all(
+           keys
+             .filter((k) => k !== CACHE_NAME && !k.startsWith(CACHE_NAME.substring(0, CACHE_NAME.lastIndexOf('-v'))))
+             .map((k) => caches.delete(k))
+         );
+       })
+   );
+   self.clients.claim();
+ });
 
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
-  if (request.method !== "GET") return;
+   const request = event.request;
+   if (request.method !== "GET") return;
 
-  const url = new URL(request.url);
+   const url = new URL(request.url);
 
-  /* Only intercept selected third-party CDN assets */
-  if (url.origin !== self.location.origin) {
-    if (isCDNAsset(request.url)) {
-      event.respondWith(networkFirst(request));
-    }
-    return;
-  }
+   // Enforce HTTPS for production
+   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+     if (request.protocol === 'http:') {
+       const httpsUrl = request.url.replace(/^http:/, 'https:');
+       event.respondWith(fetch(httpsUrl, { redirect: 'manual' }));
+       return;
+     }
+   }
+
+   /* Only intercept selected third-party CDN assets */
+   if (url.origin !== self.location.origin) {
+     if (isCDNAsset(request.url)) {
+       event.respondWith(networkFirst(request));
+     }
+     return;
+   }
 
   /* App navigation: prefer fresh network, fallback to cached page/offline shell */
   if (request.mode === "navigate") {
@@ -116,22 +132,23 @@ async function staleWhileRevalidate(request) {
 }
 
 async function networkFirst(request) {
-  try {
-    const response = await fetch(request);
-    if (response && response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    if (request.mode === "navigate") {
-      return caches.match(OFFLINE_URL);
-    }
-    return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
-  }
-}
+   try {
+     const response = await fetch(request);
+     if (response && response.ok) {
+       const cache = await caches.open(CACHE_NAME);
+       cache.put(request, response.clone());
+     }
+     return response;
+   } catch (error) {
+     console.warn('Network request failed:', error);
+     const cached = await caches.match(request);
+     if (cached) return cached;
+     if (request.mode === "navigate") {
+       return caches.match(OFFLINE_URL);
+     }
+     return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
+   }
+ }
 
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {

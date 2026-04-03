@@ -5,7 +5,7 @@ Smart, app-free visitor check-in with a guest page (`index.html`) and owner dash
 ## What This Project Is
 
 `QR Doorbell` is a static web app hosted on a CDN/edge platform.  
-Visitors scan a QR code, take a photo, and send a message.  
+Visitors scan a QR code and send an optional message.  
 Owners receive realtime updates in the dashboard and can reply instantly.
 
 ## Stack
@@ -18,8 +18,8 @@ Owners receive realtime updates in the dashboard and can reply instantly.
 
 ## Core Features
 
-- Guest photo capture + optional message
-- Message/photo optional client-side encryption
+- Optional guest message
+- Optional client-side message encryption
 - Realtime ring feed for owners
 - Owner reply workflow (`ACK`, `COMING`, custom reply)
 - Door point management + tokenized QR generation
@@ -92,7 +92,6 @@ npm run dev
 - `owner_settings`
 - `audit_log`
 - RPCs: `ensure_owner_house`, `create_house`, `add_house_member_by_email`, `resolve_qr_token`, `create_doorbell_ring_by_token`
-- Storage bucket: `guest_photos` (private)
 - Strict tenant-scoped RLS policies
 - Rate-limit trigger
 - Audit triggers
@@ -102,7 +101,6 @@ After running SQL:
 
 1. Enable Email auth provider in Supabase Auth.
 2. Create owner account in Auth users.
-3. Confirm `guest_photos` bucket exists and stays private.
 
 ## Configuration
 
