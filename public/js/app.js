@@ -29,6 +29,8 @@ const App = {
     if (this.initialized) return;
     this.initialized = true;
     I18n.init();
+    this.createIcons();
+
     if (!CONFIG.hasSupabaseConfig || !CONFIG.hasSupabaseConfig()) {
       var setupOverlay = document.getElementById("setup-overlay");
       if (setupOverlay) setupOverlay.classList.add("visible");
@@ -42,7 +44,15 @@ const App = {
     this.setupEventListeners();
     this.requestNotificationPermission();
     if (Auth.isAuthenticated()) await this.loadDashboard();
+    this.createIcons();
   },
+
+  createIcons: function() {
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  },
+
 
   registerServiceWorker: function() {
     if ("serviceWorker" in navigator) {
@@ -120,8 +130,12 @@ const App = {
       }
     });
     if (this.currentHouseId) switcher.value = this.currentHouseId;
-    if (pills) pills.style.display = this.houses.length > 1 ? "flex" : "none";
+    if (pills) {
+      pills.style.display = this.houses.length > 1 ? "flex" : "none";
+      this.createIcons();
+    }
   },
+
 
   changeHouse: async function(houseId) {
     if (!houseId || houseId === this.currentHouseId) return;
@@ -181,6 +195,8 @@ const App = {
       this.updateStats();
       this.populateDoorFilter();
       this.setupRealtimeSubscription();
+      this.createIcons();
+
     } catch (err) {
       console.error("Dashboard load error:", err);
       Utils.showToast(err.message || I18n.t("error_generic"), "error");
@@ -217,7 +233,9 @@ const App = {
     if (result.data && result.data.length) {
       this.rings.push.apply(this.rings, result.data);
       this.renderRings();
+      this.createIcons();
     }
+
   },
 
   renderRings: function() {
@@ -248,7 +266,9 @@ const App = {
     }
     feed.innerHTML = "";
     filtered.forEach(function(ring) { feed.appendChild(self.createRingCard(ring)); });
+    this.createIcons();
   },
+
 
   createRingCard: function(ring) {
     var self = this;
@@ -257,45 +277,24 @@ const App = {
     card.className = "ring-card" + (unresolved ? " unread" : "");
     card.setAttribute("data-ring-id", ring.id);
 
-
-    var content = document.createElement("div");
-    content.className = "ring-content";
-
+    // --- Header (Mobile Style) ---
     var header = document.createElement("div");
     header.className = "ring-header";
 
     var headerLeft = document.createElement("div");
     headerLeft.className = "ring-header-left";
 
-    var locationBtn = document.createElement("button");
-    locationBtn.className = "location-trigger";
-    locationBtn.type = "button";
-    locationBtn.title = ring.door_location || "Unknown";
-    var doorIcon = document.createElement("span");
-    doorIcon.className = "door-icon";
-    doorIcon.textContent = "🚪";
-    var doorLabel = document.createElement("span");
-    doorLabel.textContent = ring.door_location || "Unknown";
-    locationBtn.appendChild(doorIcon);
-    locationBtn.appendChild(doorLabel);
-    (function(locationName) {
-      locationBtn.addEventListener("click", function() {
-        self.showLocationDetails(locationName);
-      });
-    })(ring.door_location);
-    headerLeft.appendChild(locationBtn);
+    var locTrigger = document.createElement("div");
+    locTrigger.className = "location-trigger";
+    locTrigger.innerHTML = '<i data-lucide="door-closed" class="lucide-icon-sm"></i><span>' + Utils.sanitize(ring.door_location || "Unknown") + "</span>";
+    locTrigger.onclick = function() { self.showLocationDetails(ring.door_location); };
+    headerLeft.appendChild(locTrigger);
 
-    var deleteBtn = document.createElement("button");
-    deleteBtn.className = "ring-delete-btn";
-    deleteBtn.type = "button";
-    deleteBtn.textContent = "\ud83d\uddd1";
-    deleteBtn.setAttribute("aria-label", I18n.t("delete"));
-    (function(id) {
-      deleteBtn.addEventListener("click", function() {
-        self.deleteRing(id);
-      });
-    })(ring.id);
-    headerLeft.appendChild(deleteBtn);
+    var delBtn = document.createElement("button");
+    delBtn.className = "ring-delete-btn";
+    delBtn.innerHTML = '<i data-lucide="trash-2" class="lucide-icon-xs"></i>';
+    delBtn.onclick = function() { self.deleteRing(ring.id); };
+    headerLeft.appendChild(delBtn);
 
     var time = document.createElement("div");
     time.className = "ring-time";
@@ -303,107 +302,74 @@ const App = {
 
     header.appendChild(headerLeft);
     header.appendChild(time);
-    content.appendChild(header);
+    card.appendChild(header);
 
+    // --- Message Area ---
+    var msgArea = document.createElement("div");
+    msgArea.className = "message-area";
     if (ring.guest_message) {
       var msgBubble = document.createElement("div");
       msgBubble.className = "message-bubble";
-      var msgLabel = document.createElement("div");
-      msgLabel.className = "message-bubble-label";
-      msgLabel.textContent = "Visitor Message";
-      var msgText = document.createElement("div");
-      msgText.className = "message-bubble-text";
-      msgText.textContent = ring.guest_message;
-      msgBubble.appendChild(msgLabel);
-      msgBubble.appendChild(msgText);
-      content.appendChild(msgBubble);
+      msgBubble.innerHTML = `
+        <div class="message-header">
+          <i data-lucide="message-square" class="lucide-icon-xs"></i>
+          <span class="message-label">Visitor Message</span>
+        </div>
+        <div class="message-text">${Utils.sanitize(ring.guest_message)}</div>
+      `;
+      msgArea.appendChild(msgBubble);
     } else {
-      var simpleMsg = document.createElement("div");
-      simpleMsg.className = "message-bubble-text";
-      simpleMsg.textContent = "Signal received (no message)";
-      content.appendChild(simpleMsg);
+      var noMsg = document.createElement("div");
+      noMsg.className = "no-message";
+      noMsg.textContent = "Signal received (no message)";
+      msgArea.appendChild(noMsg);
     }
+    card.appendChild(msgArea);
 
-    card.appendChild(content);
-
-    // --- Threaded Chat History (Professional Obsidian Look) ---
+    // --- History Area (Threaded Chat) ---
     if (ring.chat_history && ring.chat_history.length > 0) {
-      var historyDiv = document.createElement("div");
-      historyDiv.className = "ring-chat-history";
-
+      var historyArea = document.createElement("div");
+      historyArea.className = "history-area";
       ring.chat_history.forEach(function(msg) {
         var bubble = document.createElement("div");
-        // Reuse same logic as guest: Amber for guest messages, Surface/Border for owner
-        bubble.className = "mini-chat-bubble " + (msg.role === "guest" ? "guest" : "owner");
-
-        var text = document.createElement("div");
-        text.className = "bubble-text";
-        text.textContent = msg.text;
-        bubble.appendChild(text);
-
-        if (msg.time) {
-          var timeSpan = document.createElement("div");
-          timeSpan.className = "bubble-time";
-          timeSpan.textContent = new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          bubble.appendChild(timeSpan);
-        }
-
-        historyDiv.appendChild(bubble);
+        bubble.className = "mini-bubble " + (msg.role === "guest" ? "guest-bubble" : "owner-bubble");
+        var bubbleTime = msg.time ? new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+        bubble.innerHTML = `
+          <div class="bubble-text">${Utils.sanitize(msg.text)}</div>
+          <div class="bubble-time">${bubbleTime}</div>
+        `;
+        historyArea.appendChild(bubble);
       });
-      card.appendChild(historyDiv);
+      card.appendChild(historyArea);
     }
 
-
+    // --- Actions (Always Visible) ---
     var actions = document.createElement("div");
     actions.className = "ring-actions";
 
     var ackBtn = document.createElement("button");
     ackBtn.className = "btn btn-secondary btn-sm";
     ackBtn.textContent = I18n.t("ack");
-    (function(id) {
-      ackBtn.addEventListener("click", function() {
-        self.sendReply(id, I18n.t("acknowledged"));
-      });
-    })(ring.id);
+    ackBtn.onclick = function() { self.sendReply(ring.id, I18n.t("acknowledged")); };
     actions.appendChild(ackBtn);
 
     var comingBtn = document.createElement("button");
     comingBtn.className = "btn btn-secondary btn-sm";
     comingBtn.textContent = I18n.t("coming");
-    (function(id) {
-      comingBtn.addEventListener("click", function() {
-        self.sendReply(id, I18n.t("coming"));
-      });
-    })(ring.id);
+    comingBtn.onclick = function() { self.sendReply(ring.id, I18n.t("coming")); };
     actions.appendChild(comingBtn);
 
-    var customBtn = document.createElement("button");
-    customBtn.className = "btn btn-primary btn-sm";
-    customBtn.textContent = I18n.t("secure_reply");
-    (function(id) {
-      customBtn.addEventListener("click", function() {
-        self.promptCustomReply(id);
-      });
-    })(ring.id);
-    actions.appendChild(customBtn);
+    var replyBtn = document.createElement("button");
+    replyBtn.className = "btn btn-primary btn-sm";
+    replyBtn.textContent = I18n.t("secure_reply");
+    replyBtn.onclick = function() { self.promptCustomReply(ring.id); };
+    actions.appendChild(replyBtn);
 
-    if (!unresolved) {
-      var replyBox = document.createElement("div");
-      replyBox.className = "ring-reply";
-      var replyLabel = document.createElement("div");
-      replyLabel.className = "ring-reply-label";
-      replyLabel.textContent = I18n.t("signal_inbound");
-      var replyText = document.createElement("div");
-      replyText.className = "ring-reply-text";
-      replyText.textContent = ring.owner_reply || "";
-      replyBox.appendChild(replyLabel);
-      replyBox.appendChild(replyText);
-      card.appendChild(replyBox);
-    }
     card.appendChild(actions);
 
     return card;
   },
+
 
   sendReply: async function(ringId, message) {
     try {
@@ -547,7 +513,9 @@ const App = {
     doorList.forEach(function(door) {
       addDoorPill(door, door);
     });
+    this.createIcons();
   },
+
 
   detectFlood: function() {
     var now = Date.now();
@@ -623,7 +591,9 @@ const App = {
     this.renderDoorPoints();
     this.updateStats();
     this.populateDoorFilter();
+    this.createIcons();
   },
+
 
   renderDoorPoints: function() {
     var container = document.getElementById("door-points-list");
