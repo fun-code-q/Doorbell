@@ -1,5 +1,6 @@
-const CACHE_VERSION = "v3.2.6";
+const CACHE_VERSION = "v3.2.7";
 const CACHE_NAME = `qr-doorbell-${CACHE_VERSION}`;
+const CACHE_PREFIX = "qr-doorbell-";
 const OFFLINE_URL = "offline.html";
 
 const APP_SHELL = [
@@ -7,7 +8,6 @@ const APP_SHELL = [
   "index.html",
   "owner.html",
   OFFLINE_URL,
-  "config.js",
   "manifest.json",
   "css/main.css",
   "css/components.css",
@@ -58,10 +58,10 @@ self.addEventListener("activate", (event) => {
      caches
        .keys()
        .then((keys) => {
-         // Keep current cache and up to 2 previous versions
+         // Keep only the current versioned cache.
          return Promise.all(
            keys
-             .filter((k) => k !== CACHE_NAME && !k.startsWith(CACHE_NAME.substring(0, CACHE_NAME.lastIndexOf('-v'))))
+             .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME)
              .map((k) => caches.delete(k))
          );
        })
@@ -91,6 +91,14 @@ self.addEventListener("fetch", (event) => {
      }
      return;
    }
+
+  // config.js contains deployment-injected runtime values; always fetch fresh
+  if (url.pathname.endsWith("/config.js") || url.pathname === "config.js") {
+    event.respondWith(
+      fetch(request, { cache: "no-store" }).catch(() => caches.match(request))
+    );
+    return;
+  }
 
   /* App navigation: prefer fresh network, fallback to cached page/offline shell */
   if (request.mode === "navigate") {

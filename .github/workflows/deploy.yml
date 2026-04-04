@@ -27,24 +27,23 @@ jobs:
       - name: Validate Required Secrets
         run: |
           set -euo pipefail
-          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ] || [ -z "${{ secrets.ENCRYPTION_PASSPHRASE }}" ]; then
-            echo "Error: Missing required GitHub secrets (SUPABASE_URL, SUPABASE_ANON_KEY, ENCRYPTION_PASSPHRASE)."
+          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then
+            echo "Error: Missing required GitHub secrets (SUPABASE_URL, SUPABASE_ANON_KEY)."
             exit 1
           fi
 
       - name: Inject Secrets into config.js
         run: |
           sed -i "s|REPLACE_WITH_YOUR_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" public/config.js
-          sed -i "s|REPLACE_WITH_YOUR_ANON_KEY|${{ secrets.SUPABASE_ANON_KEY }}|g" public/config.js
-          sed -i "s|REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE|${{ secrets.ENCRYPTION_PASSPHRASE }}|g" public/config.js
+          sed -i "s|REPLACE_WITH_YOUR_SUPABASE_ANON_KEY|${{ secrets.SUPABASE_ANON_KEY }}|g" public/config.js
 
       - name: Verify Secret Injection (Safe Check)
         run: |
-          if grep -q "REPLACE_WITH_YOUR_SUPABASE_URL" public/config.js || grep -q "REPLACE_WITH_YOUR_ANON_KEY" public/config.js || grep -q "REPLACE_WITH_YOUR_ENCRYPTION_PASSPHRASE" public/config.js; then
+          if grep -q "REPLACE_WITH_YOUR_SUPABASE_URL" public/config.js || grep -q "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY" public/config.js; then
             echo "Error: Secrets were not properly injected!"
             exit 1
           fi
-          if grep -q 'var defaultSupabaseUrl = "";' public/config.js || grep -q 'var defaultSupabaseAnonKey = "";' public/config.js || grep -q 'ENCRYPTION_PASSPHRASE: runtime.ENCRYPTION_PASSPHRASE || ""' public/config.js; then
+          if grep -q 'var defaultSupabaseUrl = "";' public/config.js || grep -q 'var defaultSupabaseAnonKey = "";' public/config.js; then
             echo "Error: One or more injected secrets are empty."
             exit 1
           fi
