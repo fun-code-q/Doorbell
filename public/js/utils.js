@@ -197,12 +197,13 @@ const Utils = {
   /* --- Browser Fingerprint Hash (lightweight, non-PII) --- */
   getBrowserHash: function() {
     try {
+      var scr = (typeof window !== "undefined" && window.screen) ? window.screen : null;
       var parts = [
         navigator.userAgent || "",
         navigator.language || "",
         navigator.platform || "",
-        String(screen && screen.width ? screen.width : ""),
-        String(screen && screen.height ? screen.height : ""),
+        String(scr && scr.width ? scr.width : ""),
+        String(scr && scr.height ? scr.height : ""),
         String(new Date().getTimezoneOffset())
       ].join("|");
 
