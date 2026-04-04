@@ -7,7 +7,8 @@
   /* Runtime override: if window.__QR_CONFIG exists, use it (for Vercel env injection, etc.) */
   var runtime = window.__QR_CONFIG || {};
   var defaultSupabaseUrl = "REPLACE_WITH_YOUR_SUPABASE_URL";
-  var defaultSupabaseAnonKey = "REPLACE_WITH_YOUR_ANON_KEY";
+  var defaultSupabaseAnonKey = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
+
   var resolvedSupabaseUrl = (runtime.SUPABASE_URL || defaultSupabaseUrl || "").trim().replace(/\/+$/, "");
   var resolvedSupabaseAnonKey = (runtime.SUPABASE_ANON_KEY || runtime.SUPABASE_KEY || defaultSupabaseAnonKey || "").trim();
 

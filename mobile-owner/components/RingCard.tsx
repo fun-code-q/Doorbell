@@ -15,10 +15,12 @@ export interface Ring {
   door_location: string;
   guest_message: string | null;
   owner_reply: string | null;
+  chat_history: { role: string; text: string; time: string }[] | null;
   status: string;
   created_at: string;
   replied_at: string | null;
 }
+
 
 interface RingCardProps {
   ring: Ring;
@@ -102,28 +104,41 @@ export function RingCard({
         )}
       </View>
 
-      {/* Reply or action buttons */}
-      {ring.owner_reply && ring.owner_reply !== '' ? (
-        <View style={styles.replyBox}>
-          <View style={styles.replyHeader}>
-            <MaterialCommunityIcons name="check-circle" size={12} color={Colors.success} />
-            <Text style={styles.replyLabel}>{signalInbound}</Text>
-          </View>
-          <Text style={styles.replyText}>{ring.owner_reply}</Text>
-        </View>
-      ) : (
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.btnSecondary} onPress={() => onAck(ring.id)}>
-            <Text style={styles.btnSecondaryText}>{ackLabel}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnSecondary} onPress={() => onComing(ring.id)}>
-            <Text style={styles.btnSecondaryText}>{comingLabel}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnPrimary} onPress={() => onCustomReply(ring.id)}>
-            <Text style={styles.btnPrimaryText}>{replyLabel}</Text>
-          </TouchableOpacity>
+      {/* Threaded Chat History (Modern Obsidian Bubbles) */}
+      {ring.chat_history && ring.chat_history.length > 0 && (
+        <View style={styles.historyArea}>
+          {ring.chat_history.map((msg, idx) => (
+            <View 
+              key={idx} 
+              style={[
+                styles.miniBubble, 
+                msg.role === 'guest' ? styles.guestBubble : styles.ownerBubble
+              ]}
+            >
+              <Text style={styles.bubbleText}>{msg.text}</Text>
+              {msg.time && (
+                <Text style={styles.bubbleTime}>
+                  {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </Text>
+              )}
+            </View>
+          ))}
         </View>
       )}
+
+      {/* Reply or action buttons (Always available for active threads) */}
+      <View style={styles.actions}>
+        <TouchableOpacity style={styles.btnSecondary} onPress={() => onAck(ring.id)}>
+          <Text style={styles.btnSecondaryText}>{ackLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnSecondary} onPress={() => onComing(ring.id)}>
+          <Text style={styles.btnSecondaryText}>{comingLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnPrimary} onPress={() => onCustomReply(ring.id)}>
+          <Text style={styles.btnPrimaryText}>{replyLabel}</Text>
+        </TouchableOpacity>
+      </View>
+
     </View>
   );
 }
@@ -306,4 +321,41 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizeSm,
     color: Colors.textPrimary,
   },
+  historyArea: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    gap: 8,
+  },
+  miniBubble: {
+    padding: 10,
+    borderRadius: 14,
+    maxWidth: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  guestBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderBottomLeftRadius: 4,
+  },
+  ownerBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomRightRadius: 4,
+  },
+  bubbleText: {
+    fontFamily: Typography.body,
+    fontSize: 14,
+    color: Colors.textPrimary,
+    lineHeight: 18,
+  },
+  bubbleTime: {
+    fontFamily: Typography.body,
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 4,
+    opacity: 0.7,
+  },
 });
+

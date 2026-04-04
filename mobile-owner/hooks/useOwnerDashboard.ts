@@ -22,10 +22,12 @@ export interface Ring {
   door_location: string;
   guest_message: string | null;
   owner_reply: string | null;
+  chat_history: { role: string; text: string; time: string }[] | null;
   status: string;
   created_at: string;
   replied_at: string | null;
 }
+
 
 export interface DoorPoint {
   id: string;
@@ -398,12 +400,12 @@ export function useOwnerDashboard() {
     async (ringId: string, message: string, houseId?: string) => {
       const hId = houseId || currentHouseId;
       try {
-        const result = await supabase
-          .from('doorbell_rings')
-          .update({ owner_reply: message, status: 'responded', replied_at: new Date().toISOString() })
-          .eq('id', ringId)
-          .eq('house_id', hId);
-        if (result.error) throw result.error;
+        const { error } = await supabase.rpc('append_ring_message', {
+          p_ring_id: ringId,
+          p_role: 'owner',
+          p_message: message
+        });
+        if (error) throw error;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         await loadRings(hId || undefined);
         return { success: true };
@@ -413,6 +415,7 @@ export function useOwnerDashboard() {
     },
     [currentHouseId, loadRings]
   );
+
 
   const promptCustomReply = useCallback(
     (ringId: string, houseId?: string) => {

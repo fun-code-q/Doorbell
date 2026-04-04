@@ -1,4 +1,6 @@
+/* global supabase, CONFIG, I18n, Utils, Auth, window, document */
 const App = {
+
   supabase: null,
   rings: [],
   doorPoints: [],
@@ -207,6 +209,7 @@ const App = {
   renderRings: function() {
     var feed = document.getElementById("feed-list");
     if (!feed) return;
+    this.syncStatusFilterPills();
     var self = this;
     var filtered = this.rings.slice();
     if (this.currentFilter !== "all") {
@@ -236,32 +239,55 @@ const App = {
   createRingCard: function(ring) {
     var self = this;
     var card = document.createElement("div");
-    card.className = "ring-card" + ((!ring.owner_reply || ring.owner_reply === "") ? " unread" : "");
+    var unresolved = !ring.owner_reply || ring.owner_reply === "";
+    card.className = "ring-card" + (unresolved ? " unread" : "");
     card.setAttribute("data-ring-id", ring.id);
 
 
     var content = document.createElement("div");
     content.className = "ring-content";
-    content.style.padding = "1.5rem";
 
     var header = document.createElement("div");
     header.className = "ring-header";
-    header.style.display = "flex";
-    header.style.justifyContent = "space-between";
-    header.style.alignItems = "center";
-    header.style.marginBottom = "1rem";
+
+    var headerLeft = document.createElement("div");
+    headerLeft.className = "ring-header-left";
+
+    var locationBtn = document.createElement("button");
+    locationBtn.className = "location-trigger";
+    locationBtn.type = "button";
+    locationBtn.textContent = ring.door_location || "Unknown";
+    locationBtn.title = ring.door_location || "Unknown";
+    (function(locationName) {
+      locationBtn.addEventListener("click", function() {
+        self.showLocationDetails(locationName);
+      });
+    })(ring.door_location);
+    headerLeft.appendChild(locationBtn);
+
+    var deleteBtn = document.createElement("button");
+    deleteBtn.className = "ring-delete-btn";
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "\ud83d\uddd1";
+    deleteBtn.setAttribute("aria-label", I18n.t("delete"));
+    (function(id) {
+      deleteBtn.addEventListener("click", function() {
+        self.deleteRing(id);
+      });
+    })(ring.id);
+    headerLeft.appendChild(deleteBtn);
 
     var time = document.createElement("div");
     time.className = "ring-time";
-    time.textContent = Utils.formatRelative(ring.created_at);
+    time.textContent = Utils.formatDate(ring.created_at);
 
+    header.appendChild(headerLeft);
     header.appendChild(time);
     content.appendChild(header);
 
     if (ring.guest_message) {
       var msgBubble = document.createElement("div");
       msgBubble.className = "message-bubble";
-      msgBubble.style.marginTop = "0";
       var msgLabel = document.createElement("div");
       msgLabel.className = "message-bubble-label";
       msgLabel.textContent = "Visitor Message";
@@ -273,66 +299,100 @@ const App = {
       content.appendChild(msgBubble);
     } else {
       var simpleMsg = document.createElement("div");
-      simpleMsg.style.color = "var(--text-muted)";
-      simpleMsg.style.fontSize = "0.9rem";
+      simpleMsg.className = "message-bubble-text";
       simpleMsg.textContent = "Signal received (no message)";
       content.appendChild(simpleMsg);
     }
 
     card.appendChild(content);
 
+    // --- Threaded Chat History (Professional Obsidian Look) ---
+    if (ring.chat_history && ring.chat_history.length > 0) {
+      var historyDiv = document.createElement("div");
+      historyDiv.className = "ring-chat-history";
+
+      ring.chat_history.forEach(function(msg) {
+        var bubble = document.createElement("div");
+        // Reuse same logic as guest: Amber for guest messages, Surface/Border for owner
+        bubble.className = "mini-chat-bubble " + (msg.role === "guest" ? "guest" : "owner");
+
+        var text = document.createElement("div");
+        text.className = "bubble-text";
+        text.textContent = msg.text;
+        bubble.appendChild(text);
+
+        if (msg.time) {
+          var timeSpan = document.createElement("div");
+          timeSpan.className = "bubble-time";
+          timeSpan.textContent = new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          bubble.appendChild(timeSpan);
+        }
+
+        historyDiv.appendChild(bubble);
+      });
+      card.appendChild(historyDiv);
+    }
+
+
     var actions = document.createElement("div");
     actions.className = "ring-actions";
 
-    if (!ring.owner_reply || ring.owner_reply === "") {
+    if (unresolved) {
       var ackBtn = document.createElement("button");
       ackBtn.className = "btn btn-secondary btn-sm";
       ackBtn.textContent = I18n.t("ack");
-      (function(id) { ackBtn.addEventListener("click", function() { self.sendReply(id, I18n.t("acknowledged")); }); })(ring.id);
+      (function(id) {
+        ackBtn.addEventListener("click", function() {
+          self.sendReply(id, I18n.t("acknowledged"));
+        });
+      })(ring.id);
       actions.appendChild(ackBtn);
 
       var comingBtn = document.createElement("button");
       comingBtn.className = "btn btn-secondary btn-sm";
       comingBtn.textContent = I18n.t("coming");
-      (function(id) { comingBtn.addEventListener("click", function() { self.sendReply(id, I18n.t("coming")); }); })(ring.id);
+      (function(id) {
+        comingBtn.addEventListener("click", function() {
+          self.sendReply(id, I18n.t("coming"));
+        });
+      })(ring.id);
       actions.appendChild(comingBtn);
 
       var customBtn = document.createElement("button");
       customBtn.className = "btn btn-primary btn-sm";
       customBtn.textContent = I18n.t("secure_reply");
-      (function(id) { customBtn.addEventListener("click", function() { self.promptCustomReply(id); }); })(ring.id);
+      (function(id) {
+        customBtn.addEventListener("click", function() {
+          self.promptCustomReply(id);
+        });
+      })(ring.id);
       actions.appendChild(customBtn);
+
+      card.appendChild(actions);
     } else {
-      var replyDiv = document.createElement("div");
-      replyDiv.className = "ring-reply";
-      var label = document.createElement("div");
-      label.className = "ring-reply-label";
-      label.textContent = I18n.t("signal_inbound");
-      var text = document.createElement("div");
-      text.className = "ring-reply-text";
-      text.textContent = ring.owner_reply;
-      replyDiv.appendChild(label);
-      replyDiv.appendChild(text);
-      card.appendChild(replyDiv);
+      var replyBox = document.createElement("div");
+      replyBox.className = "ring-reply";
+      var replyLabel = document.createElement("div");
+      replyLabel.className = "ring-reply-label";
+      replyLabel.textContent = I18n.t("signal_inbound");
+      var replyText = document.createElement("div");
+      replyText.className = "ring-reply-text";
+      replyText.textContent = ring.owner_reply || "";
+      replyBox.appendChild(replyLabel);
+      replyBox.appendChild(replyText);
+      card.appendChild(replyBox);
     }
 
-    var deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn btn-danger btn-sm";
-    deleteBtn.textContent = I18n.t("delete");
-    (function(id) { deleteBtn.addEventListener("click", function() { self.deleteRing(id); }); })(ring.id);
-    actions.appendChild(deleteBtn);
-
-    card.appendChild(actions);
     return card;
   },
 
   sendReply: async function(ringId, message) {
     try {
-      var result = await this.supabase
-        .from("doorbell_rings")
-        .update({ owner_reply: message, status: "responded", replied_at: new Date().toISOString() })
-        .eq("id", ringId)
-        .eq("house_id", this.currentHouseId);
+      var result = await this.supabase.rpc("append_ring_message", {
+        p_ring_id: ringId,
+        p_role: "owner",
+        p_message: message
+      });
       if (result.error) throw result.error;
       Utils.showToast(I18n.t("signal_dispatched"), "success");
       Utils.vibrate([50, 50, 50]);
@@ -345,12 +405,26 @@ const App = {
   },
 
   promptCustomReply: function(ringId) {
-    var msg = prompt(I18n.t("custom_reply"));
+    var msg = window.prompt(I18n.t("custom_reply"));
+
     if (msg && msg.trim()) this.sendReply(ringId, msg.trim());
   },
 
+  showLocationDetails: function(locationName) {
+    var normalized = (locationName || "").trim().toLowerCase();
+    var matched = this.doorPoints.find(function(dp) {
+      return (dp.name || "").trim().toLowerCase() === normalized;
+    });
+    var safeName = (locationName || "Unknown").trim() || "Unknown";
+    var description = matched && matched.description ? matched.description.trim() : "";
+    if (!description) description = I18n.t("no_description");
+    window.alert("Location Details\n\nName: " + safeName + "\nDescription: " + description);
+
+  },
+
   deleteRing: async function(ringId) {
-    if (!confirm(I18n.t("confirm_delete"))) return;
+    if (!window.confirm(I18n.t("confirm_delete"))) return;
+
     try {
       var result = await this.supabase.from("doorbell_rings").delete().eq("id", ringId).eq("house_id", this.currentHouseId);
       if (result.error) throw result.error;
@@ -376,43 +450,83 @@ const App = {
   },
 
   updateStats: function() {
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var todayStr = today.toISOString();
-    var todayRings = this.rings.filter(function(r) { return r.created_at >= todayStr; });
-    var pendingRings = this.rings.filter(function(r) { return !r.owner_reply || r.owner_reply === ""; });
-    var repliedRings = this.rings.filter(function(r) { return r.replied_at && r.created_at; });
+    var missed = this.rings.filter(function(r) {
+      return !r.owner_reply || r.owner_reply === "";
+    }).length;
+    var answered = this.rings.filter(function(r) {
+      return !!(r.owner_reply && r.owner_reply !== "");
+    }).length;
+    var totalDoors = this.doorPoints.length;
+    var pausedDoors = this.doorPoints.filter(function(dp) {
+      return !dp.is_active;
+    }).length;
 
-    var todayEl = document.getElementById("stat-today");
-    var pendingEl = document.getElementById("stat-pending");
-    var totalEl = document.getElementById("stat-total");
-    var avgEl = document.getElementById("stat-avg");
-    if (todayEl) todayEl.textContent = todayRings.length;
-    if (pendingEl) pendingEl.textContent = pendingRings.length;
-    if (totalEl) totalEl.textContent = this.rings.length;
+    var missedEl = document.getElementById("stat-missed");
+    var answeredEl = document.getElementById("stat-answered");
+    var doorsEl = document.getElementById("stat-doors");
+    var pausedEl = document.getElementById("stat-paused");
 
-    if (repliedRings.length > 0 && avgEl) {
-      var totalMs = 0;
-      repliedRings.forEach(function(r) {
-        totalMs += new Date(r.replied_at).getTime() - new Date(r.created_at).getTime();
-      });
-      var avgMins = Math.round((totalMs / repliedRings.length) / 60000);
-      avgEl.textContent = avgMins < 1 ? "<1m" : avgMins + "m";
-    } else if (avgEl) {
-      avgEl.textContent = "-";
-    }
+    if (missedEl) missedEl.textContent = String(missed);
+    if (answeredEl) answeredEl.textContent = String(answered);
+    if (doorsEl) doorsEl.textContent = String(totalDoors);
+    if (pausedEl) pausedEl.textContent = String(pausedDoors);
   },
+
+  syncStatusFilterPills: function() {
+    var self = this;
+    document.querySelectorAll("#status-filter-pills .filter-pill").forEach(function(btn) {
+      var value = btn.getAttribute("data-status-filter") || "all";
+      btn.classList.toggle("active", value === self.currentFilter);
+    });
+    var statusSelect = document.getElementById("filter-rings");
+    if (statusSelect) statusSelect.value = this.currentFilter;
+  },
+
   populateDoorFilter: function() {
     var select = document.getElementById("filter-door");
     if (!select) return;
+    var pillRow = document.getElementById("door-filter-pills");
     var doors = {};
-    this.rings.forEach(function(r) { if (r.door_location) doors[r.door_location] = true; });
-    select.innerHTML = '<option value="all">All Doors</option>';
-    Object.keys(doors).sort().forEach(function(door) {
+    this.rings.forEach(function(r) {
+      if (r.door_location) doors[r.door_location] = true;
+    });
+    var doorList = Object.keys(doors).sort();
+
+    if (this.currentDoorFilter !== "all" && doorList.indexOf(this.currentDoorFilter) === -1) {
+      this.currentDoorFilter = "all";
+    }
+
+    select.innerHTML = '<option value="all">' + I18n.t("all_doors") + "</option>";
+    doorList.forEach(function(door) {
       var opt = document.createElement("option");
       opt.value = door;
       opt.textContent = door;
       select.appendChild(opt);
+    });
+    select.value = this.currentDoorFilter;
+
+    if (!pillRow) return;
+    pillRow.innerHTML = "";
+    if (doorList.length <= 1) {
+      pillRow.style.display = "none";
+      return;
+    }
+
+    var self = this;
+    pillRow.style.display = "flex";
+    function addDoorPill(value, label) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "filter-pill";
+      btn.setAttribute("data-door-filter", value);
+      btn.textContent = label;
+      if (self.currentDoorFilter === value) btn.classList.add("active");
+      pillRow.appendChild(btn);
+    }
+
+    addDoorPill("all", I18n.t("all_doors"));
+    doorList.forEach(function(door) {
+      addDoorPill(door, door);
     });
   },
 
@@ -470,9 +584,9 @@ const App = {
 
     // Native Notification for Standalone APK
     if ("Notification" in window && Notification.permission === "granted") {
-      var title = "QR Doorbell: " + (ringData ? ringData.door_location : "New Ring");
+      var title = "QR Doorbell: " + (ringData ? ringData.door_location : I18n.t("new_ring_fallback"));
       var options = {
-        body: ringData && ringData.guest_message ? ringData.guest_message : "Someone is at the door",
+        body: ringData && ringData.guest_message ? ringData.guest_message : I18n.t("someone_at_door"),
         icon: "icons/icon-192x192.png",
         vibrate: [200, 100, 200],
         tag: "doorbell-ring",
@@ -488,6 +602,8 @@ const App = {
     if (result.error) throw result.error;
     this.doorPoints = result.data || [];
     this.renderDoorPoints();
+    this.updateStats();
+    this.populateDoorFilter();
   },
 
   renderDoorPoints: function() {
@@ -525,9 +641,9 @@ const App = {
       actions.appendChild(btn("QR", "btn btn-secondary btn-sm", function() { self.generateQRCodeForDoorPoint(dp); }));
       actions.appendChild(btn("Link", "btn btn-secondary btn-sm", function() {
         Utils.copyToClipboard(self.getGuestUrl(dp)).then(function() {
-          Utils.showToast("Door link copied", "success");
+          Utils.showToast(I18n.t("door_link_copied"), "success");
         }).catch(function() {
-          Utils.showToast("Failed to copy link", "error");
+          Utils.showToast(I18n.t("failed_copy_link"), "error");
         });
       }));
       actions.appendChild(btn(dp.is_active ? "Deactivate" : "Activate", dp.is_active ? "btn btn-danger btn-sm" : "btn btn-primary btn-sm", function() {
@@ -562,7 +678,7 @@ const App = {
     try {
       var result = await this.supabase.from("door_points").update({ is_active: !!isActive }).eq("id", id).eq("house_id", this.currentHouseId);
       if (result.error) throw result.error;
-      Utils.showToast(isActive ? "Door activated" : "Door deactivated", "success");
+      Utils.showToast(isActive ? I18n.t("door_activated") : I18n.t("door_deactivated"), "success");
       await this.loadDoorPoints();
     } catch (err) {
       console.error("Toggle door active error:", err);
@@ -571,7 +687,8 @@ const App = {
   },
 
   deleteDoorPoint: async function(id) {
-    if (!confirm(I18n.t("confirm_delete"))) return;
+    if (!window.confirm(I18n.t("confirm_delete"))) return;
+
     try {
       var result = await this.supabase.from("door_points").delete().eq("id", id).eq("house_id", this.currentHouseId);
       if (result.error) throw result.error;
@@ -585,7 +702,8 @@ const App = {
 
   editDoorPoint: function(dp) {
     var self = this;
-    var newName = prompt(I18n.t("door_name"), dp.name);
+    var newName = window.prompt(I18n.t("door_name"), dp.name);
+
     if (!newName || !newName.trim() || newName.trim() === dp.name) return;
     this.supabase.from("door_points").update({ name: newName.trim() }).eq("id", dp.id).eq("house_id", this.currentHouseId).then(function(result) {
       if (result.error) throw result.error;
@@ -784,6 +902,24 @@ const App = {
     var self = this;
 
     document.addEventListener("click", function(e) {
+      var statusPill = e.target.closest("[data-status-filter]");
+      if (statusPill) {
+        self.currentFilter = statusPill.getAttribute("data-status-filter") || "all";
+        self.syncStatusFilterPills();
+        self.renderRings();
+        return;
+      }
+
+      var doorPill = e.target.closest("[data-door-filter]");
+      if (doorPill) {
+        self.currentDoorFilter = doorPill.getAttribute("data-door-filter") || "all";
+        var doorSelect = document.getElementById("filter-door");
+        if (doorSelect) doorSelect.value = self.currentDoorFilter;
+        self.populateDoorFilter();
+        self.renderRings();
+        return;
+      }
+
       var target = e.target.closest("[data-action]");
       if (!target) return;
       var action = target.getAttribute("data-action");
@@ -806,10 +942,11 @@ const App = {
           break;
         }
         case "add-house": {
-          var houseName = prompt("New house name");
+          var houseName = window.prompt(I18n.t("add_house_prompt"));
+
           if (houseName && houseName.trim()) {
             self.createHouse(houseName.trim()).then(function() {
-              Utils.showToast("House added", "success");
+              Utils.showToast(I18n.t("house_added"), "success");
             }).catch(function(err) {
               Utils.showToast(err.message || I18n.t("error_occurred"), "error");
             });
@@ -818,6 +955,7 @@ const App = {
         }
         case "generate-qr": {
           var doorName = document.getElementById("door-in") ? document.getElementById("door-in").value.trim() : "";
+
           if (doorName) self.generateQRCodeByName(doorName);
           break;
         }
@@ -880,10 +1018,12 @@ const App = {
     document.addEventListener("change", function(e) {
       if (e.target.id === "filter-rings") {
         self.currentFilter = e.target.value;
+        self.syncStatusFilterPills();
         self.renderRings();
       }
       if (e.target.id === "filter-door") {
         self.currentDoorFilter = e.target.value;
+        self.populateDoorFilter();
         self.renderRings();
       }
       if (e.target.id === "house-switcher") {
@@ -899,17 +1039,17 @@ const App = {
         var password = document.getElementById("login-password") ? document.getElementById("login-password").value : "";
         if (!email || !password) return;
 
-        Utils.showLoading("Signing in...");
+        Utils.showLoading(I18n.t("owner_signin_loading"));
         Auth.signIn(email, password).then(function(result) {
           if (result.success) {
-            Utils.showToast("Welcome back!", "success");
+            Utils.showToast(I18n.t("owner_signin_success"), "success");
             self.loadDashboard();
           } else {
-            Utils.showToast("Invalid credentials", "error");
+            Utils.showToast(result.error || I18n.t("owner_signin_error"), "error");
           }
         }).catch(function(err) {
           console.error("Login error:", err);
-          Utils.showToast("Sign in failed", "error");
+          Utils.showToast(I18n.t("owner_signin_failed"), "error");
         }).finally(function() {
           Utils.hideLoading();
         });
@@ -924,18 +1064,18 @@ const App = {
         var password = document.getElementById("signup-password") ? document.getElementById("signup-password").value : "";
         if (!email || !password) return;
 
-        Utils.showLoading("Creating vault...");
+        Utils.showLoading(I18n.t("owner_signup_loading"));
         Auth.signUp(email, password).then(function(result) {
           if (result.success) {
-            Utils.showToast("Vault created! Please check your email and sign in.", "success", 0);
+            Utils.showToast(I18n.t("owner_signup_success"), "success", 0);
             document.getElementById("signup-view").style.display = "none";
             document.getElementById("login-view").style.display = "block";
           } else {
-            Utils.showToast(result.error || "Sign up failed", "error");
+            Utils.showToast(result.error || I18n.t("owner_signup_error"), "error");
           }
         }).catch(function(err) {
           console.error("Signup error:", err);
-          Utils.showToast("Account creation failed", "error");
+          Utils.showToast(I18n.t("owner_signup_error"), "error");
         }).finally(function() {
           Utils.hideLoading();
         });
