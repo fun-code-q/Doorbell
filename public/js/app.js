@@ -99,21 +99,35 @@ const App = {
 
   renderHouseSwitcher: function() {
     var switcher = document.getElementById("house-switcher");
+    var pills = document.getElementById("house-switch-pills");
     if (!switcher) return;
     switcher.innerHTML = "";
+    if (pills) pills.innerHTML = "";
     this.houses.forEach(function(house) {
       var option = document.createElement("option");
       option.value = house.id;
       option.textContent = house.name;
       switcher.appendChild(option);
+
+      if (pills) {
+        var pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "house-pill";
+        pill.setAttribute("data-house-id", house.id);
+        pill.textContent = house.name;
+        if (house.id === App.currentHouseId) pill.classList.add("active");
+        pills.appendChild(pill);
+      }
     });
     if (this.currentHouseId) switcher.value = this.currentHouseId;
+    if (pills) pills.style.display = this.houses.length > 1 ? "flex" : "none";
   },
 
   changeHouse: async function(houseId) {
     if (!houseId || houseId === this.currentHouseId) return;
     this.currentHouseId = houseId;
     Utils.storage.set("active_house_id", houseId);
+    this.renderHouseSwitcher();
     await this.loadRings();
     await this.loadDoorPoints();
     await this.loadAuditLog();
@@ -256,8 +270,14 @@ const App = {
     var locationBtn = document.createElement("button");
     locationBtn.className = "location-trigger";
     locationBtn.type = "button";
-    locationBtn.textContent = ring.door_location || "Unknown";
     locationBtn.title = ring.door_location || "Unknown";
+    var doorIcon = document.createElement("span");
+    doorIcon.className = "door-icon";
+    doorIcon.textContent = "🚪";
+    var doorLabel = document.createElement("span");
+    doorLabel.textContent = ring.door_location || "Unknown";
+    locationBtn.appendChild(doorIcon);
+    locationBtn.appendChild(doorLabel);
     (function(locationName) {
       locationBtn.addEventListener("click", function() {
         self.showLocationDetails(locationName);
@@ -337,39 +357,37 @@ const App = {
     var actions = document.createElement("div");
     actions.className = "ring-actions";
 
-    if (unresolved) {
-      var ackBtn = document.createElement("button");
-      ackBtn.className = "btn btn-secondary btn-sm";
-      ackBtn.textContent = I18n.t("ack");
-      (function(id) {
-        ackBtn.addEventListener("click", function() {
-          self.sendReply(id, I18n.t("acknowledged"));
-        });
-      })(ring.id);
-      actions.appendChild(ackBtn);
+    var ackBtn = document.createElement("button");
+    ackBtn.className = "btn btn-secondary btn-sm";
+    ackBtn.textContent = I18n.t("ack");
+    (function(id) {
+      ackBtn.addEventListener("click", function() {
+        self.sendReply(id, I18n.t("acknowledged"));
+      });
+    })(ring.id);
+    actions.appendChild(ackBtn);
 
-      var comingBtn = document.createElement("button");
-      comingBtn.className = "btn btn-secondary btn-sm";
-      comingBtn.textContent = I18n.t("coming");
-      (function(id) {
-        comingBtn.addEventListener("click", function() {
-          self.sendReply(id, I18n.t("coming"));
-        });
-      })(ring.id);
-      actions.appendChild(comingBtn);
+    var comingBtn = document.createElement("button");
+    comingBtn.className = "btn btn-secondary btn-sm";
+    comingBtn.textContent = I18n.t("coming");
+    (function(id) {
+      comingBtn.addEventListener("click", function() {
+        self.sendReply(id, I18n.t("coming"));
+      });
+    })(ring.id);
+    actions.appendChild(comingBtn);
 
-      var customBtn = document.createElement("button");
-      customBtn.className = "btn btn-primary btn-sm";
-      customBtn.textContent = I18n.t("secure_reply");
-      (function(id) {
-        customBtn.addEventListener("click", function() {
-          self.promptCustomReply(id);
-        });
-      })(ring.id);
-      actions.appendChild(customBtn);
+    var customBtn = document.createElement("button");
+    customBtn.className = "btn btn-primary btn-sm";
+    customBtn.textContent = I18n.t("secure_reply");
+    (function(id) {
+      customBtn.addEventListener("click", function() {
+        self.promptCustomReply(id);
+      });
+    })(ring.id);
+    actions.appendChild(customBtn);
 
-      card.appendChild(actions);
-    } else {
+    if (!unresolved) {
       var replyBox = document.createElement("div");
       replyBox.className = "ring-reply";
       var replyLabel = document.createElement("div");
@@ -382,6 +400,7 @@ const App = {
       replyBox.appendChild(replyText);
       card.appendChild(replyBox);
     }
+    card.appendChild(actions);
 
     return card;
   },
@@ -902,6 +921,15 @@ const App = {
     var self = this;
 
     document.addEventListener("click", function(e) {
+      var housePill = e.target.closest("[data-house-id]");
+      if (housePill) {
+        var houseId = housePill.getAttribute("data-house-id");
+        if (houseId) {
+          self.changeHouse(houseId);
+        }
+        return;
+      }
+
       var statusPill = e.target.closest("[data-status-filter]");
       if (statusPill) {
         self.currentFilter = statusPill.getAttribute("data-status-filter") || "all";

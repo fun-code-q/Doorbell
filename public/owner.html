@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' https://assets.mixkit.co data: blob:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; media-src 'self' https://assets.mixkit.co data: blob:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="description" content="QR Doorbell Owner Dashboard - Manage visitor rings">
     <meta name="theme-color" content="#f59e0b">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="QR Doorbell">
     <title>QR Doorbell - Dashboard</title>
@@ -350,6 +350,38 @@
             background: #050505;
             padding-bottom: 10px;
             margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .owner-dashboard .house-switch-row {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 2px 0 10px;
+            margin-bottom: 2px;
+        }
+
+        .owner-dashboard .house-switch-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .owner-dashboard .house-pill {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            color: #64748b;
+            border-radius: 999px;
+            font: 700 12px/1 'Inter', sans-serif;
+            white-space: nowrap;
+            padding: 7px 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .owner-dashboard .house-pill.active {
+            background: rgba(245, 158, 11, 0.14);
+            border-color: #f59e0b;
+            color: #f59e0b;
         }
 
         .owner-dashboard .section-header {
@@ -384,7 +416,7 @@
 
         .owner-dashboard .stat-card {
             padding: 10px 12px;
-            min-height: 96px;
+            min-height: 110px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -399,31 +431,31 @@
         }
 
         .owner-dashboard .stat-icon {
-            width: 20px;
-            height: 20px;
-            border-radius: 10px;
+            width: 24px;
+            height: 24px;
+            border-radius: 12px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 13px;
             background: rgba(245, 158, 11, 0.12);
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .owner-dashboard .stat-value {
             font-family: 'Inter', sans-serif;
-            font-size: 1.7rem;
+            font-size: 1.92rem;
             font-weight: 800;
             color: #f59e0b;
-            line-height: 1;
+            line-height: 1.08;
             margin-top: 4px;
         }
 
         .owner-dashboard .stat-label {
             flex: 1;
-            font-size: 0.58rem;
+            font-size: 0.62rem;
             font-weight: 700;
-            letter-spacing: 0.09em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
             color: #64748b;
             line-height: 1.2;
@@ -581,6 +613,11 @@
             overflow: hidden;
         }
 
+        .owner-dashboard .ring-card.unread {
+            border-color: rgba(245, 158, 11, 0.45);
+            background: rgba(245, 158, 11, 0.08);
+        }
+
         .owner-dashboard .ring-content {
             padding: 12px 14px 8px;
         }
@@ -609,10 +646,19 @@
             padding: 6px 10px;
             color: #f59e0b;
             font: 700 12px/1 'Inter', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             min-width: 0;
             white-space: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;
+        }
+
+        .owner-dashboard .location-trigger .door-icon {
+            font-size: 12px;
+            line-height: 1;
+            opacity: 0.9;
         }
 
         .owner-dashboard .ring-delete-btn {
@@ -665,6 +711,17 @@
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
+            align-items: stretch;
+        }
+
+        .owner-dashboard .ring-actions .btn {
+            flex: 1 1 0;
+            min-width: 90px;
+            justify-content: center;
+        }
+
+        .owner-dashboard .ring-actions .btn-primary {
+            flex-grow: 2;
         }
 
         .owner-dashboard .ring-reply {
@@ -890,6 +947,7 @@
 
         <div id="tab-dashboard" class="tab-content active">
             <div class="dashboard-fixed">
+                <div id="house-switch-pills" class="house-switch-row" style="display:none;"></div>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-head">
@@ -1055,7 +1113,7 @@
 
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/i18n.js"></script>
     <script src="js/auth.js"></script>

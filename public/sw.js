@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v3.2.7";
+const CACHE_VERSION = "v3.2.8";
 const CACHE_NAME = `qr-doorbell-${CACHE_VERSION}`;
 const CACHE_PREFIX = "qr-doorbell-";
 const OFFLINE_URL = "offline.html";
@@ -26,7 +26,7 @@ const APP_SHELL = [
 
 const CDN_PREFIXES = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
-  "https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js",
+  "https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js",
   "https://fonts.googleapis.com/",
   "https://fonts.gstatic.com/"
 ];

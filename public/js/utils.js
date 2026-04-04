@@ -194,6 +194,30 @@ const Utils = {
     return new URLSearchParams(window.location.search).get(param);
   },
 
+  /* --- Browser Fingerprint Hash (lightweight, non-PII) --- */
+  getBrowserHash: function() {
+    try {
+      var parts = [
+        navigator.userAgent || "",
+        navigator.language || "",
+        navigator.platform || "",
+        String(screen && screen.width ? screen.width : ""),
+        String(screen && screen.height ? screen.height : ""),
+        String(new Date().getTimezoneOffset())
+      ].join("|");
+
+      // Simple deterministic 32-bit hash -> hex string
+      var h = 0;
+      for (var i = 0; i < parts.length; i++) {
+        h = ((h << 5) - h) + parts.charCodeAt(i);
+        h |= 0;
+      }
+      return "ua_" + (h >>> 0).toString(16);
+    } catch (_e) {
+      return "ua_unknown";
+    }
+  },
+
   /* --- Error Boundary --- */
   wrapErrorBoundary: function(fn, fallback) {
     return function() {
