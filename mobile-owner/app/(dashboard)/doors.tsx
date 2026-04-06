@@ -28,8 +28,9 @@ import { DoorPoint, DoorPointMember } from '../../hooks/useOwnerDashboard';
 import { useI18n } from '../../hooks/useI18n';
 import { showToast } from '../../components/Toast';
 import { Colors, Radii, Spacing, Typography } from '../../constants/theme';
+import { CONFIG } from '../../lib/config';
 
-const GUEST_BASE_URL = 'https://fun-code-q.github.io/Doorbell/';
+const GUEST_BASE_URL = CONFIG.GUEST_BASE_URL;
 
 export default function DoorsScreen() {
   const { user } = useAuth();
@@ -260,10 +261,10 @@ export default function DoorsScreen() {
             </View>
             
             <View style={styles.qrContainer}>
-              <ViewShot ref={qrRef} options={{ format: 'png', quality: 1.0 }}>
-                <View style={styles.qrBg} collapsable={false}>
-                  <QRCode
-                    value={`${GUEST_BASE_URL}?t=${selectedDoor?.qr_token}`}
+                <ViewShot ref={qrRef} options={{ format: 'png', quality: 1.0 }}>
+                  <View style={styles.qrBg} collapsable={false}>
+                    <QRCode
+                    value={selectedDoor ? dashboard.getGuestUrl(selectedDoor, GUEST_BASE_URL) : ''}
                     size={220}
                     color={Colors.bgObsidian}
                     backgroundColor="#FFFFFF"

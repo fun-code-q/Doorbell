@@ -1,10 +1,16 @@
-// QR Vault — App Config
-// Replaces the web config.js — no window.* references
+// QR Vault - App Config
+// Replaces the web config.js - no window.* references
+
+const rawGuestBaseUrl = (process.env.EXPO_PUBLIC_GUEST_BASE_URL || '').trim();
+const guestBaseUrl = rawGuestBaseUrl
+  ? rawGuestBaseUrl.replace(/\/?$/, '/')
+  : 'https://fun-code-q.github.io/Doorbell/';
 
 export const CONFIG = {
   // Set your Supabase credentials here (or use EAS env secrets at build time)
   SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || 'REPLACE_WITH_YOUR_SUPABASE_URL',
   SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'REPLACE_WITH_YOUR_ANON_KEY',
+  GUEST_BASE_URL: guestBaseUrl,
 
   APP_VERSION: '1.0.0',
   DEFAULT_LANGUAGE: 'en',

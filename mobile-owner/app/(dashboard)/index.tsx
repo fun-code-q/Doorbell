@@ -50,6 +50,16 @@ const BASE_TAB_BAR_STYLE = {
       } as const)),
 };
 
+function isRingResolved(ring: Ring): boolean {
+  if (ring.status === 'responded') return true;
+  return !!(ring.owner_reply && ring.owner_reply !== '');
+}
+
+function isRingWaiting(ring: Ring): boolean {
+  if (isRingResolved(ring)) return false;
+  return true;
+}
+
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const params = useLocalSearchParams<{ incoming_ring_id?: string; house_id?: string }>();
@@ -270,7 +280,7 @@ export default function DashboardScreen() {
       comingLabel={t('coming')}
       replyLabel={t('secure_reply')}
       signalInbound={t('signal_inbound')}
-      isUnread={!item.owner_reply && !dashboard.readRingIds[item.id]}
+      isUnread={isRingWaiting(item) && !dashboard.readRingIds[item.id]}
     />
   );
 
@@ -294,10 +304,10 @@ export default function DashboardScreen() {
       <View style={styles.fixedHeader}>
         <View style={[styles.statsGrid, styles.statsGridTwoByTwo]}>
           <View style={styles.statItem}>
-            <StatCard value={dashboard.rings.filter((r) => !r.owner_reply).length} label="Missed" icon="phone-missed" />
+            <StatCard value={dashboard.rings.filter((r) => isRingWaiting(r)).length} label="Missed" icon="phone-missed" />
           </View>
           <View style={styles.statItem}>
-            <StatCard value={dashboard.rings.filter((r) => !!r.owner_reply).length} label="Answered" icon="check-circle-outline" />
+            <StatCard value={dashboard.rings.filter((r) => isRingResolved(r)).length} label="Answered" icon="check-circle-outline" />
           </View>
           <View style={styles.statItem}>
             <StatCard value={dashboard.doorPoints.length} label="Total Doors" icon="door-open" />

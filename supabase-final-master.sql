@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS public.doorbell_rings (
   door_location TEXT NOT NULL,
   guest_name TEXT,
   guest_message TEXT,
+  chat_history JSONB NOT NULL DEFAULT '[]'::jsonb,
   guest_message_encrypted BOOLEAN DEFAULT false,
   status TEXT DEFAULT 'waiting' CHECK (status IN ('waiting', 'acknowledged', 'responded', 'dismissed')),
   owner_reply TEXT DEFAULT '',
@@ -124,6 +125,25 @@ ALTER TABLE public.owner_settings
 UPDATE public.owner_settings
 SET auto_logout_minutes = 15
 WHERE auto_logout_minutes IS NULL;
+
+ALTER TABLE public.doorbell_rings
+  ADD COLUMN IF NOT EXISTS chat_history JSONB DEFAULT '[]'::jsonb;
+UPDATE public.doorbell_rings
+SET chat_history = CASE
+  WHEN nullif(trim(coalesce(guest_message, '')), '') IS NOT NULL THEN jsonb_build_array(
+    jsonb_build_object(
+      'role', 'guest',
+      'text', trim(guest_message),
+      'time', created_at
+    )
+  )
+  ELSE '[]'::jsonb
+END
+WHERE chat_history IS NULL;
+ALTER TABLE public.doorbell_rings
+  ALTER COLUMN chat_history SET DEFAULT '[]'::jsonb;
+ALTER TABLE public.doorbell_rings
+  ALTER COLUMN chat_history SET NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.audit_log (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -168,6 +188,30 @@ BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.house_members hm
     WHERE hm.house_id = p_house_id AND hm.user_id = auth.uid()
+  );
+END;
+$$;
+
+DROP FUNCTION IF EXISTS public.has_house_role(UUID, TEXT[]) CASCADE;
+CREATE OR REPLACE FUNCTION public.has_house_role(p_house_id UUID, p_roles TEXT[])
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off
+AS $$
+BEGIN
+  IF auth.uid() IS NULL OR p_house_id IS NULL OR p_roles IS NULL OR array_length(p_roles, 1) IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.house_members hm
+    WHERE hm.house_id = p_house_id
+      AND hm.user_id = auth.uid()
+      AND hm.role = ANY(p_roles)
   );
 END;
 $$;
@@ -387,7 +431,20 @@ DECLARE
   v_house_id UUID;
   v_door_name TEXT;
   v_new_id UUID;
+  v_clean_guest_message TEXT;
+  v_history JSONB := '[]'::jsonb;
 BEGIN
+  v_clean_guest_message := nullif(trim(coalesce(p_guest_message, '')), '');
+  IF v_clean_guest_message IS NOT NULL THEN
+    v_history := jsonb_build_array(
+      jsonb_build_object(
+        'role', 'guest',
+        'text', v_clean_guest_message,
+        'time', timezone('utc'::text, now())
+      )
+    );
+  END IF;
+
   -- 1. Resolve token to door
   SELECT dp.id, dp.house_id, dp.name
   INTO v_dp_id, v_house_id, v_door_name
@@ -404,6 +461,7 @@ BEGIN
     door_point_id,
     door_location,
     guest_message,
+    chat_history,
     guest_message_encrypted,
     ip_hash
   )
@@ -411,7 +469,8 @@ BEGIN
     v_house_id,
     v_dp_id,
     v_door_name,
-    p_guest_message,
+    v_clean_guest_message,
+    v_history,
     p_guest_message_encrypted,
     p_user_agent_hash
   )
@@ -427,19 +486,109 @@ SECURITY DEFINER
 SET search_path TO public, pg_temp
 SET row_security = off;
 
+DROP FUNCTION IF EXISTS public.append_ring_message(UUID, TEXT, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.append_ring_message(UUID, TEXT, TEXT, TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION public.append_ring_message(
+  p_ring_id UUID,
+  p_role TEXT,
+  p_message TEXT,
+  p_qr_token TEXT DEFAULT NULL
+)
+RETURNS TABLE(id UUID, owner_reply TEXT, status TEXT, replied_at TIMESTAMPTZ, chat_history JSONB) AS $$
+DECLARE
+  v_role TEXT := lower(trim(coalesce(p_role, '')));
+  v_message TEXT := trim(coalesce(p_message, ''));
+  v_now TIMESTAMPTZ := timezone('utc'::text, now());
+  v_ring RECORD;
+BEGIN
+  IF p_ring_id IS NULL THEN
+    RAISE EXCEPTION 'Ring id is required';
+  END IF;
+  IF v_role NOT IN ('guest', 'owner') THEN
+    RAISE EXCEPTION 'Invalid role';
+  END IF;
+  IF v_message = '' THEN
+    RAISE EXCEPTION 'Message is required';
+  END IF;
+  IF length(v_message) > 500 THEN
+    RAISE EXCEPTION 'Message exceeds 500 characters';
+  END IF;
+
+  SELECT
+    r.id,
+    r.house_id,
+    r.door_point_id,
+    r.owner_reply,
+    r.status,
+    r.replied_at,
+    COALESCE(r.chat_history, '[]'::jsonb) AS chat_history,
+    dp.qr_token
+  INTO v_ring
+  FROM public.doorbell_rings r
+  LEFT JOIN public.door_points dp ON dp.id = r.door_point_id
+  WHERE r.id = p_ring_id
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Ring not found';
+  END IF;
+
+  IF v_role = 'guest' THEN
+    IF p_qr_token IS NULL OR trim(p_qr_token) = '' THEN
+      RAISE EXCEPTION 'QR token is required';
+    END IF;
+    IF v_ring.qr_token IS NULL OR trim(p_qr_token) <> v_ring.qr_token THEN
+      RAISE EXCEPTION 'Token mismatch';
+    END IF;
+  ELSE
+    IF auth.uid() IS NULL THEN
+      RAISE EXCEPTION 'Auth required';
+    END IF;
+    IF NOT (
+      public.has_house_role(v_ring.house_id, ARRAY['owner', 'manager'])
+      OR public.check_user_is_door_member(v_ring.door_point_id)
+    ) THEN
+      RAISE EXCEPTION 'Access denied';
+    END IF;
+  END IF;
+
+  UPDATE public.doorbell_rings r
+  SET
+    chat_history = v_ring.chat_history || jsonb_build_array(
+      jsonb_build_object(
+        'role', v_role,
+        'text', v_message,
+        'time', v_now
+      )
+    ),
+    owner_reply = CASE WHEN v_role = 'owner' THEN v_message ELSE r.owner_reply END,
+    replied_at = CASE WHEN v_role = 'owner' THEN v_now ELSE r.replied_at END,
+    status = CASE WHEN v_role = 'owner' THEN 'responded' ELSE 'waiting' END,
+    updated_at = v_now
+  WHERE r.id = p_ring_id
+  RETURNING r.id, r.owner_reply, r.status, r.replied_at, r.chat_history
+  INTO id, owner_reply, status, replied_at, chat_history;
+
+  RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off;
+
 DROP FUNCTION IF EXISTS public.get_guest_ring_reply_by_token(UUID, TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_guest_ring_reply_by_token(
   p_ring_id UUID,
   p_qr_token TEXT
 )
-RETURNS TABLE(owner_reply TEXT, status TEXT, replied_at TIMESTAMPTZ) AS $$
+RETURNS TABLE(owner_reply TEXT, status TEXT, replied_at TIMESTAMPTZ, chat_history JSONB) AS $$
 BEGIN
   IF p_ring_id IS NULL OR p_qr_token IS NULL OR trim(p_qr_token) = '' THEN
     RETURN;
   END IF;
 
   RETURN QUERY
-  SELECT r.owner_reply, r.status, r.replied_at
+  SELECT r.owner_reply, r.status, r.replied_at, COALESCE(r.chat_history, '[]'::jsonb)
   FROM public.doorbell_rings r
   JOIN public.door_points dp ON dp.id = r.door_point_id
   WHERE r.id = p_ring_id
@@ -451,7 +600,11 @@ SECURITY DEFINER
 SET search_path TO public, pg_temp
 SET row_security = off;
 
+GRANT EXECUTE ON FUNCTION public.resolve_qr_token(TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_doorbell_ring_by_token(TEXT, TEXT, BOOLEAN, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.append_ring_message(UUID, TEXT, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_guest_ring_reply_by_token(UUID, TEXT) TO anon, authenticated;
+GRANT SELECT (id, house_id, door_point_id, door_location, status, owner_reply, replied_at, chat_history, created_at) ON public.doorbell_rings TO anon;
 
 -- 6. ROW LEVEL SECURITY (Flattened Subqueries)
 ALTER TABLE public.houses ENABLE ROW LEVEL SECURITY;
@@ -478,43 +631,73 @@ CREATE POLICY houses_delete_owner ON public.houses FOR DELETE TO authenticated U
 -- 6b. DOOR_POINTS Policies (Recursion Free)
 DROP POLICY IF EXISTS door_points_select_member ON public.door_points;
 CREATE POLICY door_points_select_member ON public.door_points FOR SELECT TO authenticated USING (
-  public.is_house_owner(house_id) OR public.check_user_is_door_member(id)
+  public.is_house_member(house_id) OR public.check_user_is_door_member(id)
 );
 DROP POLICY IF EXISTS door_points_manage_owner ON public.door_points;
-CREATE POLICY door_points_manage_owner ON public.door_points FOR ALL TO authenticated USING (
-  public.is_house_owner(house_id)
+DROP POLICY IF EXISTS door_points_manage_house_operator ON public.door_points;
+CREATE POLICY door_points_manage_house_operator ON public.door_points FOR ALL TO authenticated
+USING (
+  public.has_house_role(house_id, ARRAY['owner', 'manager'])
+)
+WITH CHECK (
+  public.has_house_role(house_id, ARRAY['owner', 'manager'])
 );
 
 -- 6c. RINGS Policies (Recursion Free)
 DROP POLICY IF EXISTS rings_select_member ON public.doorbell_rings;
 CREATE POLICY rings_select_member ON public.doorbell_rings FOR SELECT TO authenticated USING (
-  public.is_house_owner(house_id) OR public.check_user_is_door_member(door_point_id)
+  public.is_house_member(house_id) OR public.check_user_is_door_member(door_point_id)
+);
+DROP POLICY IF EXISTS rings_select_guest ON public.doorbell_rings;
+CREATE POLICY rings_select_guest ON public.doorbell_rings FOR SELECT TO anon USING (
+  status IN ('waiting', 'acknowledged', 'responded', 'dismissed')
 );
 DROP POLICY IF EXISTS rings_insert_guest ON public.doorbell_rings;
-CREATE POLICY rings_insert_guest ON public.doorbell_rings FOR INSERT TO anon, authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS rings_insert_member ON public.doorbell_rings;
+CREATE POLICY rings_insert_member ON public.doorbell_rings FOR INSERT TO authenticated
+WITH CHECK (
+  public.has_house_role(house_id, ARRAY['owner', 'manager'])
+  OR public.check_user_is_door_member(door_point_id)
+);
 DROP POLICY IF EXISTS rings_manage_owner ON public.doorbell_rings;
-CREATE POLICY rings_manage_owner ON public.doorbell_rings FOR ALL TO authenticated USING (
-  public.is_house_owner(house_id)
+DROP POLICY IF EXISTS rings_update_member ON public.doorbell_rings;
+CREATE POLICY rings_update_member ON public.doorbell_rings FOR UPDATE TO authenticated
+USING (
+  public.has_house_role(house_id, ARRAY['owner', 'manager'])
+  OR public.check_user_is_door_member(door_point_id)
+)
+WITH CHECK (
+  public.has_house_role(house_id, ARRAY['owner', 'manager'])
+  OR public.check_user_is_door_member(door_point_id)
+);
+DROP POLICY IF EXISTS rings_delete_owner ON public.doorbell_rings;
+CREATE POLICY rings_delete_owner ON public.doorbell_rings FOR DELETE TO authenticated USING (
+  public.has_house_role(house_id, ARRAY['owner'])
 );
 
 -- 6d. HOUSE_MEMBERS (Recursion Free)
 DROP POLICY IF EXISTS house_members_select ON public.house_members;
 CREATE POLICY house_members_select ON public.house_members FOR SELECT TO authenticated USING (
-  user_id = auth.uid() OR public.is_house_owner(house_id)
+  public.is_house_member(house_id)
 );
 DROP POLICY IF EXISTS house_members_manage_owner ON public.house_members;
 CREATE POLICY house_members_manage_owner ON public.house_members FOR ALL TO authenticated USING (
-  public.is_house_owner(house_id)
+  public.has_house_role(house_id, ARRAY['owner'])
 );
 
 -- 6e. DOOR_POINT_MEMBERS (Recursion Free)
 DROP POLICY IF EXISTS door_point_members_select ON public.door_point_members;
 CREATE POLICY door_point_members_select ON public.door_point_members FOR SELECT TO authenticated USING (
-  user_id = auth.uid() OR public.is_house_owner(house_id)
+  public.is_house_member(house_id) OR user_id = auth.uid()
 );
 DROP POLICY IF EXISTS door_point_members_manage_owner ON public.door_point_members;
-CREATE POLICY door_point_members_manage_owner ON public.door_point_members FOR ALL TO authenticated USING (
-  public.is_house_owner(house_id)
+DROP POLICY IF EXISTS door_point_members_manage_operator ON public.door_point_members;
+CREATE POLICY door_point_members_manage_operator ON public.door_point_members FOR ALL TO authenticated
+USING (
+  public.has_house_role(house_id, ARRAY['owner', 'manager'])
+)
+WITH CHECK (
+  public.has_house_role(house_id, ARRAY['owner', 'manager'])
 );
 DROP POLICY IF EXISTS door_point_members_update_self ON public.door_point_members;
 CREATE POLICY door_point_members_update_self ON public.door_point_members FOR UPDATE TO authenticated USING (user_id = auth.uid());
@@ -546,6 +729,58 @@ CREATE POLICY audit_log_select_house_member ON public.audit_log FOR SELECT TO au
 );
 
 -- 7. TRIGGERS (Auto-Profile & Updated At)
+DROP FUNCTION IF EXISTS public.log_audit_event() CASCADE;
+CREATE OR REPLACE FUNCTION public.log_audit_event()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_new JSONB := COALESCE(to_jsonb(NEW), '{}'::jsonb);
+  v_old JSONB := COALESCE(to_jsonb(OLD), '{}'::jsonb);
+  v_house_id UUID;
+  v_record_id UUID;
+  v_action TEXT;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_house_id := NULLIF(v_old->>'house_id', '')::UUID;
+    v_record_id := NULLIF(v_old->>'id', '')::UUID;
+  ELSE
+    v_house_id := NULLIF(v_new->>'house_id', '')::UUID;
+    v_record_id := NULLIF(v_new->>'id', '')::UUID;
+  END IF;
+
+  IF v_house_id IS NULL THEN
+    IF TG_OP = 'DELETE' THEN
+      v_house_id := public.door_point_house_id(NULLIF(v_old->>'door_point_id', '')::UUID);
+    ELSE
+      v_house_id := public.door_point_house_id(NULLIF(v_new->>'door_point_id', '')::UUID);
+    END IF;
+  END IF;
+
+  v_action := lower(TG_OP) || '_' || TG_TABLE_NAME;
+
+  INSERT INTO public.audit_log (house_id, user_id, action, table_name, record_id, details)
+  VALUES (
+    v_house_id,
+    auth.uid(),
+    v_action,
+    TG_TABLE_NAME,
+    v_record_id,
+    jsonb_build_object(
+      'operation', TG_OP,
+      'new', CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE v_new END,
+      'old', CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE v_old END
+    )
+  );
+
+  RETURN COALESCE(NEW, OLD);
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'log_audit_event failed on %.%: %', TG_TABLE_SCHEMA, TG_TABLE_NAME, SQLERRM;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off;
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -559,6 +794,67 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+DROP FUNCTION IF EXISTS public.ensure_door_owner_membership() CASCADE;
+CREATE OR REPLACE FUNCTION public.ensure_door_owner_membership()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_owner UUID;
+BEGIN
+  SELECT h.owner_user_id
+  INTO v_owner
+  FROM public.houses h
+  WHERE h.id = NEW.house_id
+  LIMIT 1;
+
+  IF v_owner IS NOT NULL THEN
+    INSERT INTO public.door_point_members (door_point_id, house_id, user_id, is_muted)
+    VALUES (NEW.id, NEW.house_id, v_owner, false)
+    ON CONFLICT (door_point_id, user_id) DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+SET row_security = off;
+
+DROP TRIGGER IF EXISTS trg_ensure_door_owner_membership ON public.door_points;
+CREATE TRIGGER trg_ensure_door_owner_membership
+AFTER INSERT ON public.door_points
+FOR EACH ROW
+EXECUTE FUNCTION public.ensure_door_owner_membership();
+
+INSERT INTO public.door_point_members (door_point_id, house_id, user_id, is_muted)
+SELECT dp.id, dp.house_id, h.owner_user_id, false
+FROM public.door_points dp
+JOIN public.houses h ON h.id = dp.house_id
+ON CONFLICT (door_point_id, user_id) DO NOTHING;
+
+DROP TRIGGER IF EXISTS trg_audit_door_points ON public.door_points;
+CREATE TRIGGER trg_audit_door_points
+AFTER INSERT OR UPDATE OR DELETE ON public.door_points
+FOR EACH ROW
+EXECUTE FUNCTION public.log_audit_event();
+
+DROP TRIGGER IF EXISTS trg_audit_door_point_members ON public.door_point_members;
+CREATE TRIGGER trg_audit_door_point_members
+AFTER INSERT OR UPDATE OR DELETE ON public.door_point_members
+FOR EACH ROW
+EXECUTE FUNCTION public.log_audit_event();
+
+DROP TRIGGER IF EXISTS trg_audit_house_members ON public.house_members;
+CREATE TRIGGER trg_audit_house_members
+AFTER INSERT OR UPDATE OR DELETE ON public.house_members
+FOR EACH ROW
+EXECUTE FUNCTION public.log_audit_event();
+
+DROP TRIGGER IF EXISTS trg_audit_doorbell_rings ON public.doorbell_rings;
+CREATE TRIGGER trg_audit_doorbell_rings
+AFTER INSERT OR UPDATE OR DELETE ON public.doorbell_rings
+FOR EACH ROW
+EXECUTE FUNCTION public.log_audit_event();
+
 -- 8. REALTIME
 DO $$
 BEGIN
@@ -569,6 +865,7 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.door_points;
   END IF;
 END $$;
+DROP POLICY IF EXISTS audit_log_delete_owner ON public.audit_log;
 CREATE POLICY audit_log_delete_owner ON public.audit_log 
 FOR DELETE TO authenticated 
 USING (
@@ -577,6 +874,34 @@ USING (
 
 -- 9. PUSH NOTIFICATIONS (Expo + Edge Function Webhook)
 CREATE EXTENSION IF NOT EXISTS pg_net;
+
+CREATE TABLE IF NOT EXISTS public.system_settings (
+  setting_key TEXT PRIMARY KEY,
+  setting_value TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+INSERT INTO public.system_settings (setting_key, setting_value)
+VALUES ('push_ring_webhook_url', NULL)
+ON CONFLICT (setting_key) DO NOTHING;
+
+REVOKE ALL ON TABLE public.system_settings FROM anon, authenticated;
+
+DROP FUNCTION IF EXISTS public.touch_system_settings_updated_at() CASCADE;
+CREATE OR REPLACE FUNCTION public.touch_system_settings_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at := timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_touch_system_settings_updated_at ON public.system_settings;
+CREATE TRIGGER trg_touch_system_settings_updated_at
+BEFORE UPDATE ON public.system_settings
+FOR EACH ROW
+EXECUTE FUNCTION public.touch_system_settings_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.push_subscriptions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -719,9 +1044,22 @@ SET row_security = off;
 DROP FUNCTION IF EXISTS public.notify_ring_push_webhook() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_ring_push_webhook()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_webhook_url TEXT;
 BEGIN
+  SELECT nullif(trim(coalesce(setting_value, '')), '')
+  INTO v_webhook_url
+  FROM public.system_settings
+  WHERE setting_key = 'push_ring_webhook_url'
+  LIMIT 1;
+
+  IF v_webhook_url IS NULL THEN
+    RAISE NOTICE 'push_ring_webhook_url is not configured; skipping push webhook for ring %', NEW.id;
+    RETURN NEW;
+  END IF;
+
   PERFORM net.http_post(
-    url := 'https://ebvotxcyfbzzoisgkdui.supabase.co/functions/v1/push-ring-notification',
+    url := v_webhook_url,
     headers := jsonb_build_object('Content-Type', 'application/json'),
     body := jsonb_build_object(
       'ring_id', NEW.id,

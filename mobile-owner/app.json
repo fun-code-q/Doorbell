@@ -44,7 +44,9 @@
         "android.permission.CALL_PHONE",
         "android.permission.DISABLE_KEYGUARD",
         "android.permission.FOREGROUND_SERVICE_PHONE_CALL",
-        "android.permission.MANAGE_OWN_CALLS"
+        "android.permission.MANAGE_OWN_CALLS",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -62,7 +64,8 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#f59e0b"
+          "color": "#f59e0b",
+          "defaultChannel": "doorbell-rings"
         }
       ],
       "expo-audio",

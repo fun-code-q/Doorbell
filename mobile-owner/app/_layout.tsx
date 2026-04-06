@@ -1,6 +1,5 @@
 // QR Vault - Root Layout
-// Sets up fonts, safe area, toast manager, and auth-based routing
-// Integrates Full-Screen Incoming Call Handling (CallKeep + TaskManager)
+// Sets up auth routing and hardened Android ring notification bootstrap.
 
 import React, { useEffect } from 'react';
 import { View, Text, LogBox, Platform, StyleSheet } from 'react-native';
@@ -20,11 +19,92 @@ import RNCallKeep from 'react-native-callkeep';
 import { useAuth } from '../hooks/useAuth';
 import { ToastManager } from '../components/Toast';
 import { Colors } from '../constants/theme';
+import { AndroidPermissionHelper } from '../lib/androidPermissions';
 import { SUPABASE_CONFIG_MISSING } from '../lib/supabase';
+import { Storage } from '../lib/storage';
+import {
+  BACKGROUND_NOTIFICATION_TASK,
+  DOORBELL_RING_CHANNEL_ID,
+  isRingNotificationPayload,
+  normalizeRingPayload,
+} from '../lib/notifications';
 
-const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND_NOTIFICATION_TASK';
+const BATTERY_OPT_PROMPT_KEY = 'battery_opt_prompt_shown_v2';
+const isAndroidExpoGo = Constants.appOwnership === 'expo' && Platform.OS === 'android';
+const shouldUseNativeRingStack = Platform.OS !== 'web' && !isAndroidExpoGo;
 
-// Suppress Expo Go development environment warnings
+const callKeepOptions = {
+  ios: { appName: 'QR Vault' },
+  android: {
+    alertTitle: 'Permissions Required',
+    alertDescription: 'QR Vault needs phone permissions to show incoming rings.',
+    cancelButton: 'Cancel',
+    okButton: 'OK',
+    selfManaged: true,
+    additionalPermissions: [],
+  },
+};
+
+let callKeepReadyPromise: Promise<void> | null = null;
+
+async function ensureCallKeepReady() {
+  if (!shouldUseNativeRingStack) return;
+  if (!callKeepReadyPromise) {
+    callKeepReadyPromise = RNCallKeep.setup(callKeepOptions)
+      .then(() => {
+        RNCallKeep.setAvailable(true);
+      })
+      .catch(() => {});
+  }
+  await callKeepReadyPromise;
+}
+
+async function ensureDoorbellRingChannel() {
+  if (Platform.OS !== 'android' || !shouldUseNativeRingStack) return;
+  try {
+    await Notifications.setNotificationChannelAsync(DOORBELL_RING_CHANNEL_ID, {
+      name: 'Doorbell Rings',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
+      lightColor: '#f59e0b',
+      showBadge: true,
+      sound: 'default',
+      enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+  } catch {}
+}
+
+async function displayIncomingRingViaSystem(payload: unknown) {
+  if (Platform.OS !== 'android' || !shouldUseNativeRingStack) return;
+  if (!isRingNotificationPayload(payload)) return;
+
+  const { ringId, doorLocation } = normalizeRingPayload(payload);
+  if (!ringId) return;
+
+  await ensureCallKeepReady();
+  try {
+    RNCallKeep.displayIncomingCall(ringId, 'QR Doorbell', doorLocation, 'number', false);
+  } catch {}
+}
+
+function routeToRingScreen(payload: unknown) {
+  if (!isRingNotificationPayload(payload)) return false;
+  const { ringId, doorLocation, houseId } = normalizeRingPayload(payload);
+  if (!ringId) return false;
+
+  router.replace({
+    pathname: '/incoming-ring',
+    params: {
+      ring_id: ringId,
+      door_location: doorLocation,
+      ...(houseId ? { house_id: houseId } : {}),
+    },
+  });
+  return true;
+}
+
+// Suppress noisy non-actionable dev warnings.
 LogBox.ignoreLogs([
   'expo-notifications: Android Push notifications',
   'Expo AV has been deprecated',
@@ -33,41 +113,78 @@ LogBox.ignoreLogs([
   'expo-notifications',
 ]);
 
-// 1. Register background task for processing doorbell rings
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification) => {
+      const isRing = isRingNotificationPayload(notification.request.content.data);
+      return {
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        priority: isRing
+          ? Notifications.AndroidNotificationPriority.MAX
+          : Notifications.AndroidNotificationPriority.HIGH,
+      };
+    },
+  });
+}
+
 if (!TaskManager.isTaskDefined(BACKGROUND_NOTIFICATION_TASK)) {
   TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => {
     if (error) {
-      console.error('Core: Background notification task error:', error);
+      console.error('Background notification task error:', error);
       return;
     }
-    if (data) {
-      const { notification } = data as any;
-      const ringData = notification?.data || {};
-      
-      // If it's a ring call type, trigger the system Call UI
-      if (ringData.type === 'ring_call' || ringData.ring_id) {
-         RNCallKeep.displayIncomingCall(
-           ringData.ring_id || 'unknown',
-           'QR Doorbell',
-           ringData.door_location || 'Guest at Door',
-           'number',
-           false
-         );
-      }
-    }
+
+    const notification = (data as { notification?: Notifications.Notification } | undefined)?.notification;
+    const payload =
+      notification?.request?.content?.data ||
+      (data as { data?: Record<string, unknown> } | undefined)?.data;
+    if (!isRingNotificationPayload(payload)) return;
+
+    await ensureDoorbellRingChannel();
+    await displayIncomingRingViaSystem(payload);
   });
+}
+
+if (shouldUseNativeRingStack) {
+  Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK).catch(() => {});
 }
 
 function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
+    if (isLoading) return;
+
+    if (!isAuthenticated) {
+      router.replace('/(auth)/login');
+      return;
+    }
+
+    (async () => {
+      try {
+        const lastResponse = await Notifications.getLastNotificationResponseAsync();
+        const hasPendingRing = routeToRingScreen(
+          lastResponse?.notification?.request?.content?.data
+        );
+        if (!hasPendingRing) {
+          router.replace('/(dashboard)');
+        }
+      } catch {
         router.replace('/(dashboard)');
-      } else {
-        router.replace('/(auth)/login');
       }
+    })();
+
+    if (Platform.OS === 'android') {
+      (async () => {
+        const alreadyPrompted = await Storage.get<boolean>(BATTERY_OPT_PROMPT_KEY, false);
+        if (alreadyPrompted) return;
+        await Storage.set(BATTERY_OPT_PROMPT_KEY, true);
+        await AndroidPermissionHelper.requestIgnoreBatteryOptimizations();
+      })();
     }
   }, [isAuthenticated, isLoading]);
 
@@ -87,6 +204,60 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  useEffect(() => {
+    if (!shouldUseNativeRingStack || SUPABASE_CONFIG_MISSING) return;
+
+    void ensureDoorbellRingChannel();
+    void ensureCallKeepReady();
+
+    const answerCallSub = RNCallKeep.addEventListener('answerCall', ({ callUUID }) => {
+      RNCallKeep.backToForeground();
+      routeToRingScreen({ ring_id: callUUID, type: 'ring_call' });
+    });
+
+    const showIncomingCallUiSub = RNCallKeep.addEventListener(
+      'showIncomingCallUi',
+      ({ callUUID, name }) => {
+        routeToRingScreen({
+          ring_id: callUUID,
+          door_location: name || 'Guest at Door',
+          type: 'ring_call',
+        });
+      }
+    );
+
+    const endCallSub = RNCallKeep.addEventListener('endCall', () => {
+      RNCallKeep.endAllCalls();
+    });
+
+    const notificationReceivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      const payload = notification.request.content.data;
+      if (!isRingNotificationPayload(payload)) return;
+      void displayIncomingRingViaSystem(payload);
+      routeToRingScreen(payload);
+    });
+
+    const notificationResponseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const payload = response.notification.request.content.data;
+      routeToRingScreen(payload);
+    });
+
+    (async () => {
+      try {
+        const lastResponse = await Notifications.getLastNotificationResponseAsync();
+        routeToRingScreen(lastResponse?.notification?.request?.content?.data);
+      } catch {}
+    })();
+
+    return () => {
+      answerCallSub.remove();
+      showIncomingCallUiSub.remove();
+      endCallSub.remove();
+      notificationReceivedSub.remove();
+      notificationResponseSub.remove();
+    };
+  }, []);
+
   if (SUPABASE_CONFIG_MISSING) {
     return (
       <SafeAreaProvider>
@@ -97,132 +268,13 @@ export default function RootLayout() {
             Supabase variables are missing in this build.
           </Text>
           <Text style={styles.configErrorBody}>
-            Set EAS environment values for EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY, then rebuild.
+            Set EAS environment values for EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY,
+            then rebuild.
           </Text>
         </View>
       </SafeAreaProvider>
     );
   }
-
-  useEffect(() => {
-    const isUnsupported = (Constants.appOwnership === 'expo' && Platform.OS === 'android') || Platform.OS === 'web';
-    if (isUnsupported) return;
-
-    // 2. Initialize CallKeep
-    const callKeepOptions = {
-      ios: { appName: 'QR Vault' },
-      android: {
-        alertTitle: 'Permissions Required',
-        alertDescription: 'QR Vault needs phone permissions to show incoming rings.',
-        cancelButton: 'Cancel',
-        okButton: 'OK',
-        selfManaged: true,
-        additionalPermissions: [],
-      }
-    };
-
-    try {
-      RNCallKeep.setup(callKeepOptions).then(accepted => {
-        if (accepted) {
-          RNCallKeep.setAvailable(true);
-        }
-      }).catch(() => {});
-
-      // Configure Android Notification Channel for High Priority Rings
-      if (Platform.OS === 'android') {
-        Notifications.setNotificationChannelAsync('rings', {
-          name: 'Incoming Rings',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000],
-          lightColor: '#f59e0b',
-          showBadge: true,
-        });
-      }
-    } catch (e) {
-      console.warn('Notification/CallKeep setup failed:', e);
-    }
-
-    // 3. Register Background Notification Task
-    Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK).catch(() => {});
-
-    // 4. Notification Response Handler (Foreground/Background tap)
-    const handleNotificationPayload = (data: any) => {
-      if (!data) return;
-      const ringId = typeof data.ring_id === 'string' ? data.ring_id : null;
-      const doorLocation = typeof data.door_location === 'string' ? data.door_location : 'Guest at Door';
-      const houseId = typeof data.house_id === 'string' ? data.house_id : null;
-      const url = typeof data.url === 'string' ? data.url : null;
-      const type = data.type;
-
-      // Priority: Trigger Full-Screen Incoming Ring UI
-      if (type === 'ring_call' || ringId) {
-        router.push({
-          pathname: '/incoming-ring',
-          params: { ring_id: ringId || '', door_location: doorLocation, house_id: houseId || undefined }
-        });
-        return;
-      }
-
-      // Fallback: Handle deep links
-      if (url && url.startsWith('qrvault://')) {
-        try {
-          const parsed = new URL(url);
-          const deepRingId = parsed.searchParams.get('ring_id');
-          if (deepRingId) {
-            router.push({
-              pathname: '/(dashboard)',
-              params: { incoming_ring_id: deepRingId } as any
-            });
-            return;
-          }
-        } catch {}
-      }
-
-      router.push('/(dashboard)');
-    };
-
-    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      handleNotificationPayload(response.notification.request.content.data);
-    });
-
-    // 5. Configuration for Foreground/Background Ring UI
-    Notifications.setNotificationHandler({
-      handleNotification: async (notification) => {
-        const data = notification.request.content.data;
-        if (data.type === 'ring_call') {
-          return {
-            shouldShowAlert: true,
-            shouldShowBanner: true,
-            shouldPlaySound: true,
-            shouldShowList: true,
-            shouldSetBadge: true,
-            priority: Notifications.AndroidNotificationPriority.MAX,
-          };
-        }
-        return {
-          shouldShowAlert: true,
-          shouldShowBanner: true,
-          shouldPlaySound: true,
-          shouldShowList: true,
-          shouldSetBadge: true,
-        };
-      },
-    });
-
-    // Handle cold start from notification
-    (async () => {
-      try {
-        const lastResponse = await Notifications.getLastNotificationResponseAsync();
-        if (lastResponse) {
-          handleNotificationPayload(lastResponse.notification.request.content.data);
-        }
-      } catch {}
-    })();
-
-    return () => {
-      responseSub.remove();
-    };
-  }, []);
 
   if (!fontsLoaded) return null;
 

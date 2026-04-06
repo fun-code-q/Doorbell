@@ -53,6 +53,26 @@ const App = {
     }
   },
 
+  isRingResolved: function(ring) {
+    if (!ring) return false;
+    if (ring.status === "waiting" || ring.status === "acknowledged" || ring.status === "dismissed") return false;
+    if (ring.status === "responded") return true;
+    return !!(ring.owner_reply && ring.owner_reply !== "");
+  },
+
+  isRingWaiting: function(ring) {
+    if (!ring) return false;
+    if (ring.status === "waiting" || ring.status === "acknowledged") return true;
+    if (ring.status === "dismissed") return false;
+    return !this.isRingResolved(ring);
+  },
+
+  recomputeUnreadCount: function() {
+    var self = this;
+    this.unreadCount = this.rings.filter(function(r) { return self.isRingWaiting(r); }).length;
+    this.updateNotifBadge();
+  },
+
 
   registerServiceWorker: function() {
     if ("serviceWorker" in navigator) {
@@ -215,8 +235,7 @@ const App = {
       .limit(this.pageSize);
     if (result.error) throw result.error;
     this.rings = result.data || [];
-    this.unreadCount = this.rings.filter(function(r) { return !r.owner_reply || r.owner_reply === ""; }).length;
-    this.updateNotifBadge();
+    this.recomputeUnreadCount();
     this.renderRings();
   },
 
@@ -246,8 +265,8 @@ const App = {
     var filtered = this.rings.slice();
     if (this.currentFilter !== "all") {
       filtered = filtered.filter(function(r) {
-        if (self.currentFilter === "waiting") return !r.owner_reply || r.owner_reply === "";
-        if (self.currentFilter === "responded") return !!(r.owner_reply && r.owner_reply !== "");
+        if (self.currentFilter === "waiting") return self.isRingWaiting(r);
+        if (self.currentFilter === "responded") return self.isRingResolved(r);
         return true;
       });
     }
@@ -273,7 +292,7 @@ const App = {
   createRingCard: function(ring) {
     var self = this;
     var card = document.createElement("div");
-    var unresolved = !ring.owner_reply || ring.owner_reply === "";
+    var unresolved = this.isRingWaiting(ring);
     card.className = "ring-card" + (unresolved ? " unread" : "");
     card.setAttribute("data-ring-id", ring.id);
 
@@ -435,12 +454,9 @@ const App = {
   },
 
   updateStats: function() {
-    var missed = this.rings.filter(function(r) {
-      return !r.owner_reply || r.owner_reply === "";
-    }).length;
-    var answered = this.rings.filter(function(r) {
-      return !!(r.owner_reply && r.owner_reply !== "");
-    }).length;
+    var self = this;
+    var missed = this.rings.filter(function(r) { return self.isRingWaiting(r); }).length;
+    var answered = this.rings.filter(function(r) { return self.isRingResolved(r); }).length;
     var totalDoors = this.doorPoints.length;
     var pausedDoors = this.doorPoints.filter(function(dp) {
       return !dp.is_active;
@@ -533,15 +549,16 @@ const App = {
     this.ringChannel = this.supabase
       .channel("doorbell_rings_realtime_" + this.currentHouseId)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "doorbell_rings", filter: "house_id=eq." + this.currentHouseId }, function(payload) {
-        self.rings.unshift(payload.new);
-        self.unreadCount++;
-        self.updateNotifBadge();
+        var incoming = payload.new || {};
+        if (!incoming.id) return;
+        self.rings = [incoming].concat(self.rings.filter(function(r) { return r.id !== incoming.id; }));
+        self.recomputeUnreadCount();
         self.updateStats();
         self.populateDoorFilter();
         self.detectFlood();
         self.renderRings();
-        self.playNotificationSound(payload.new);
-        Utils.showToast(I18n.t("new_ring_alert", { door: payload.new.door_location }), "info");
+        self.playNotificationSound(incoming);
+        Utils.showToast(I18n.t("new_ring_alert", { door: incoming.door_location }), "info");
         Utils.vibrate([100, 50, 100]);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "doorbell_rings", filter: "house_id=eq." + this.currentHouseId }, async function() {

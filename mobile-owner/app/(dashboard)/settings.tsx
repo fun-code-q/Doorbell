@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { useSharedDashboard } from './_layout';
 import { useI18n } from '../../hooks/useI18n';
+import { AndroidPermissionHelper } from '../../lib/androidPermissions';
 import { showToast } from '../../components/Toast';
 import { Colors, Radii, Spacing, Typography } from '../../constants/theme';
 
@@ -51,7 +52,7 @@ export default function SettingsScreen() {
         vibration_enabled: vibrationEnabled,
         push_enabled: pushEnabled,
         language: lang,
-        auto_logout_minutes: 0,
+        auto_logout_minutes: dashboard.settings?.auto_logout_minutes ?? 15,
       });
 
       showToast(t('saved'), 'success');
@@ -74,6 +75,48 @@ export default function SettingsScreen() {
           <SettingRow label={t('vibration')} value={vibrationEnabled} onChange={setVibrationEnabled} />
           <SettingRow label={t('push_enabled')} value={pushEnabled} onChange={setPushEnabled} />
         </View>
+
+        {/* Android Troubleshooting (Hidden on iOS) */}
+        {Platform.OS === 'android' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Android Notification Troubleshooting</Text>
+            <Text style={styles.cardHelper}>
+              If rings do not appear while minimized or closed, enable these Android settings:
+            </Text>
+
+            <TouchableOpacity 
+              style={styles.troubleRow} 
+              onPress={() => AndroidPermissionHelper.requestOverlayPermission()}
+            >
+              <Text style={styles.troubleLabel}>1. Display Over Other Apps</Text>
+              <Text style={styles.troubleAction}>CONFIGURE</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.troubleRow} 
+              onPress={() => AndroidPermissionHelper.requestIgnoreBatteryOptimizations()}
+            >
+              <Text style={styles.troubleLabel}>2. Ignore Battery Optimizations</Text>
+              <Text style={styles.troubleAction}>UNRESTRICT</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.troubleRow} 
+              onPress={() => AndroidPermissionHelper.openNotificationSettings()}
+            >
+              <Text style={styles.troubleLabel}>3. Notification Channel + Pop On Screen</Text>
+              <Text style={styles.troubleAction}>VIEW</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.troubleRow}
+              onPress={() => AndroidPermissionHelper.openFullScreenIntentSettings()}
+            >
+              <Text style={styles.troubleLabel}>4. Full-Screen Rings (Android 14+)</Text>
+              <Text style={styles.troubleAction}>ALLOW</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Save settings */}
         <TouchableOpacity
@@ -168,6 +211,33 @@ const styles = StyleSheet.create({
     fontFamily: Typography.body,
     fontSize: Typography.sizeMd,
     color: Colors.textPrimary,
+  },
+  cardHelper: {
+    fontFamily: Typography.body,
+    fontSize: Typography.sizeSm,
+    color: Colors.textMuted,
+    lineHeight: 18,
+    marginBottom: Spacing.md,
+  },
+  troubleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.glassBorder,
+  },
+  troubleLabel: {
+    fontFamily: Typography.bodySemiBold,
+    fontSize: Typography.sizeSm,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  troubleAction: {
+    fontFamily: Typography.headingBold,
+    fontSize: Typography.sizeXs,
+    color: Colors.accent,
+    letterSpacing: 0.5,
   },
   numInput: {
     backgroundColor: 'rgba(0,0,0,0.4)',

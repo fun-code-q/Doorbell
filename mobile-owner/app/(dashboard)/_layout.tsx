@@ -119,7 +119,11 @@ export default function DashboardLayout() {
       <Tabs.Screen
         name="qr-factory"
         options={{ 
-          href: null,
+          title: 'QR Factory',
+          tabBarLabel: 'QR',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="qrcode" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

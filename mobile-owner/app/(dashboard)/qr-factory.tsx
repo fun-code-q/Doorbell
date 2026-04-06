@@ -18,20 +18,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
-import { useAuth } from '../../hooks/useAuth';
-import { useOwnerDashboard } from '../../hooks/useOwnerDashboard';
+import { useSharedDashboard } from './_layout';
 import { useI18n } from '../../hooks/useI18n';
 import { showToast } from '../../components/Toast';
 import { Colors, Radii, Spacing, Typography } from '../../constants/theme';
+import { CONFIG } from '../../lib/config';
 import type { DoorPoint } from '../../hooks/useOwnerDashboard';
 
-// Base URL for your guest web app
-const GUEST_BASE_URL = 'https://fun-code-q.github.io/Doorbell/';
+const GUEST_BASE_URL = CONFIG.GUEST_BASE_URL;
 
 export default function QRFactoryScreen() {
-  const { user } = useAuth();
   const { t } = useI18n();
-  const dashboard = useOwnerDashboard();
+  const dashboard = useSharedDashboard();
 
   const [doorName, setDoorName] = useState('');
   const [selectedDoor, setSelectedDoor] = useState<DoorPoint | null>(null);
@@ -170,7 +168,7 @@ export default function QRFactoryScreen() {
                 {saving ? (
                   <ActivityIndicator color={Colors.textInverse} />
                 ) : (
-                  <Text style={styles.saveBtnText}>📥 {t('archive_png')}</Text>
+                  <Text style={styles.saveBtnText}>{t('archive_png')}</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -179,7 +177,7 @@ export default function QRFactoryScreen() {
                   showToast('Door link copied!', 'success')
                 )}
               >
-                <Text style={styles.copyLinkText}>🔗 Copy Link</Text>
+                <Text style={styles.copyLinkText}>Copy Link</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -361,3 +359,4 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 });
+

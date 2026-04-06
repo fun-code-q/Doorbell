@@ -11,6 +11,7 @@ import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { Storage } from '../lib/storage';
 import { CONFIG } from '../lib/config';
+import { DOORBELL_RING_CHANNEL_ID } from '../lib/notifications';
 import { translate } from './useI18n';
 
 // -----------------------------------------------------------------------
@@ -85,6 +86,20 @@ export interface Stats {
   total: number;
 }
 
+function isRingResolved(ring: Ring): boolean {
+  if (ring.status === 'waiting' || ring.status === 'acknowledged' || ring.status === 'dismissed') {
+    return false;
+  }
+  if (ring.status === 'responded') return true;
+  return !!(ring.owner_reply && ring.owner_reply !== '');
+}
+
+function isRingWaiting(ring: Ring): boolean {
+  if (ring.status === 'waiting' || ring.status === 'acknowledged') return true;
+  if (ring.status === 'dismissed') return false;
+  return !isRingResolved(ring);
+}
+
 // -----------------------------------------------------------------------
 // Hook
 // -----------------------------------------------------------------------
@@ -114,7 +129,7 @@ export function useOwnerDashboard() {
   const FLOOD_WINDOW = 60000;
 
   useEffect(() => {
-    const unread = rings.filter((r) => (!r.owner_reply || r.owner_reply === '') && !readRingIds[r.id]).length;
+    const unread = rings.filter((r) => isRingWaiting(r) && !readRingIds[r.id]).length;
     setUnreadCount(unread);
   }, [rings, readRingIds]);
 
@@ -157,6 +172,11 @@ export function useOwnerDashboard() {
     async (houseId: string) => {
       if (!houseId || houseId === currentHouseId) return;
       setCurrentHouseId(houseId);
+      setDoorPointMembers({});
+      setReadRingIds({});
+      setRings([]);
+      setDoorPoints([]);
+      setAuditEntries([]);
       await Storage.set('active_house_id', houseId);
     },
     [currentHouseId]
@@ -493,7 +513,7 @@ export function useOwnerDashboard() {
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString();
     const todayRings = data.filter((r) => r.created_at >= todayStr);
-    const pendingRings = data.filter((r) => !r.owner_reply || r.owner_reply === '');
+    const pendingRings = data.filter((r) => isRingWaiting(r));
     const repliedRings = data.filter((r) => r.replied_at && r.created_at);
     let avgResponse = '-';
     if (repliedRings.length > 0) {
@@ -520,8 +540,8 @@ export function useOwnerDashboard() {
       let filtered = [...data];
       if (currentFilter !== 'all') {
         filtered = filtered.filter((r) => {
-          if (currentFilter === 'waiting') return !r.owner_reply || r.owner_reply === '';
-          if (currentFilter === 'responded') return !!(r.owner_reply && r.owner_reply !== '');
+          if (currentFilter === 'waiting') return isRingWaiting(r);
+          if (currentFilter === 'responded') return isRingResolved(r);
           return true;
         });
       }
@@ -571,7 +591,7 @@ export function useOwnerDashboard() {
           (payload) => {
             const newRing = payload.new as Ring;
             // Immediate UI update for the active house
-            setRings((prev) => [newRing, ...prev].slice(0, 50));
+            setRings((prev) => [newRing, ...prev.filter((r) => r.id !== newRing.id)].slice(0, 50));
             setReadRingIds((prev) => {
               if (!prev[newRing.id]) return prev;
               const next = { ...prev };
@@ -671,7 +691,7 @@ export function useOwnerDashboard() {
         if (status !== 'granted') return null;
 
         if (Platform.OS === 'android') {
-          await Notifications.setNotificationChannelAsync('doorbell-rings', {
+          await Notifications.setNotificationChannelAsync(DOORBELL_RING_CHANNEL_ID, {
             name: 'Doorbell Rings',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
@@ -868,7 +888,7 @@ export function useOwnerDashboard() {
         .eq('user_id', userId)
         .single();
       if (result.error && result.error.code !== 'PGRST116') throw result.error;
-      const s: OwnerSettings = result.data || {
+      const base: OwnerSettings = result.data || {
         user_id: userId,
         sound_enabled: true,
         vibration_enabled: true,
@@ -877,8 +897,13 @@ export function useOwnerDashboard() {
         auto_logout_minutes: 15,
         active_house_id: houseId || currentHouseId,
       };
+      const autoLogoutRaw = Number(base.auto_logout_minutes);
+      const autoLogoutMinutes = Number.isFinite(autoLogoutRaw)
+        ? Math.min(Math.max(autoLogoutRaw, 1), 120)
+        : 15;
+      const s: OwnerSettings = { ...base, auto_logout_minutes: autoLogoutMinutes };
       setSettings(s);
-      await Storage.set('auto_logout_minutes', s.auto_logout_minutes || 15);
+      await Storage.set('auto_logout_minutes', autoLogoutMinutes);
       return s;
     },
     [currentHouseId]
@@ -887,13 +912,19 @@ export function useOwnerDashboard() {
   const saveSettings = useCallback(
     async (userId: string, newSettings: Partial<OwnerSettings>, houseId?: string) => {
       const hId = houseId || currentHouseId;
+      const autoLogoutRaw = Number(
+        newSettings.auto_logout_minutes ?? settings?.auto_logout_minutes ?? 15
+      );
+      const autoLogoutMinutes = Number.isFinite(autoLogoutRaw)
+        ? Math.min(Math.max(autoLogoutRaw, 1), 120)
+        : 15;
       const settingsData: OwnerSettings = {
         user_id: userId,
         sound_enabled: newSettings.sound_enabled ?? true,
         vibration_enabled: newSettings.vibration_enabled ?? true,
         push_enabled: newSettings.push_enabled ?? true,
         language: newSettings.language ?? 'en',
-        auto_logout_minutes: newSettings.auto_logout_minutes ?? 15,
+        auto_logout_minutes: autoLogoutMinutes,
         active_house_id: hId,
       };
       const { error } = await supabase
@@ -908,7 +939,7 @@ export function useOwnerDashboard() {
         await deactivatePushToken();
       }
     },
-    [currentHouseId, loadSettings, registerPushToken, deactivatePushToken]
+    [currentHouseId, settings, loadSettings, registerPushToken, deactivatePushToken]
   );
 
   // -----------------------------------------------------------------------
@@ -954,6 +985,29 @@ export function useOwnerDashboard() {
     },
     [currentHouseId]
   );
+
+  useEffect(() => {
+    if (!currentHouseId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await Promise.all([
+          loadRings(currentHouseId),
+          loadDoorPoints(currentHouseId),
+          loadAuditLog(currentHouseId),
+        ]);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('Failed to refresh dashboard data for selected house:', err);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentHouseId, loadRings, loadDoorPoints, loadAuditLog]);
 
   // -----------------------------------------------------------------------
   // Full dashboard load (mirrors app.js loadDashboard)

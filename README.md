@@ -1,15 +1,19 @@
-# QR Doorbell 🔔
+# QR Doorbell 🔔 — Pro Edition
 
-A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It provides a frictionless guest experience via location-aware QR codes and an industrial-grade owner dashboard available on both web and native mobile platforms.
+A professional, high-reliability, and contactless "Smart QR Wireless Doorbell" system. This project delivers a **frictionless guest experience** via location-aware QR codes and an **industrial-grade owner notification engine** optimized for Android 14+ and iOS.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/fun-code-q/Doorbell/actions/workflows/ci.yml/badge.svg)](https://github.com/fun-code-q/Doorbell/actions)
+[![Deploy Edge Functions](https://github.com/fun-code-q/Doorbell/actions/workflows/deploy-supabase.yml/badge.svg)](https://github.com/fun-code-q/Doorbell/actions/workflows/deploy-supabase.yml)
 
-## 🌟 Overview
+---
 
-`QR Doorbell` replaces traditional physical doorbells with a secure, digital alternative. 
-- **Guests** scan a unique QR code to "ring" the doorbell and send optional messages without installing any app.
-- **Owners** receive instant push notifications and manage rings through a powerful dashboard (Web PWA or Native Android/iOS App).
+## 🌟 The "Bulletproof" Notification Engine
+Unlike standard apps, QR Doorbell is built for **100% Ring Reliability**. It treats doorbell rings as high-priority events that bypass system restrictions.
+
+- **Dual-Payload Delivery**: Sends both a visible "Alert" and a hidden "Headless Wake-up" to ensure the app reacts even if it was "killed" by the system.
+- **Full-Screen Ring UI**: On Android, rings bypass the lock screen and show a direct "Answer/Decline" interface immediately.
+- **High-Priority FCM**: Configured with `priority: high` and a 5-minute TTL to penetrate Android's "Doze" mode.
+- **Persistent Vibration**: Custom vibration patterns until the owner takes action.
 
 ---
 
@@ -18,103 +22,39 @@ A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It 
 ### 🏁 Guest Experience (App-Free)
 - **Zero-Install**: Works directly in any modern mobile browser.
 - **Location-Aware QR**: Prevents "fake" rings from remote locations.
-- **Guest Messaging**: Guests can send optional text notes with each ring.
-- **Internationalization**: Full i18n support for multiple languages.
+- **Threaded Live Chat**: Real-time messaging between guest and owner.
 
 ### 🏠 Owner Management
-- **Native Mobile App**: Built with Expo/React Native for real-time alerts.
-- **Real-time Ring Feed**: Instant updates when someone is at the door via the mobile app.
-- **Smart Replies**: One-tap replies (`ACK`, `COMING`, etc.) or custom messages.
-- **Multi-House Support**: Manage multiple properties from a single account.
-- **QR Tokenization**: Generate and revoke secure, time-limited QR tokens for different doors.
-- **Audit Logs**: Full transparency with database-level audit trails.
-- **CSV Export**: Export ring history for record-keeping.
-
-### 🛡️ Security & Stability
-- **Row-Level Security (RLS)**: Robust Postgres policies for tenant isolation.
-- **Rate Limiting**: Integrated DB triggers to prevent spam.
-- **Secure Transport**: HTTPS + Supabase Auth/RLS protect app access and data flow.
-- **PWA Ready**: Offline support and home-screen installation.
-- **Enterprise Settings**: Strong owner controls with audit logging and role-based access.
+- **Native Pro App**: Built with Expo/React Native for real-time alerts.
+- **Power-User Dashboard**: Manage multiple houses and door points from one screen.
+- **Notification Troubleshooting**: Built-in wizard to help owners configure "Overlay" and "Battery Optimization" permissions.
 
 ---
 
-## 🛠️ Tech Stack
-
-### Frontend (Guest Web)
-- **Vanilla HTML5/CSS3/JS**: No heavy frameworks, optimized for speed.
-- **Supabase JS SDK**: Real-time DB and Auth integration.
-- **Service Workers**: PWA capabilities and offline shell.
-
-### Mobile App (Owner)
-- **React Native & Expo**: Cross-platform native performance.
-- **TypeScript**: Type-safe development for reliability.
-- **Native Notifications**: Real-time push alerts via `expo-notifications`.
-- **Secure Store**: Encrypted storage for credentials and keys.
-
-### Backend & Infrastructure
-- **Supabase**: PostgreSQL, Auth (Email/OTP), Storage, and Real-time.
-- **Vercel**: Optimized edge hosting for the static guest interface.
+## 🛠️ Automated Cloud & CI/CD
+This project is pre-configured for automated DevOps:
+- **GitHub Actions**: Every push to `main` automatically deploys your Supabase Edge Functions.
+- **Supabase Webhooks**: Database triggers are pre-wired to the notification pipeline via `pg_net`.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start (Owner)
 
-### Prerequisites
-- Node.js 20+
-- A Supabase project
+### 1. Cloud Pre-requisites
+1. **Supabase**: Enable the `pg_net` extension.
+2. **Secrets**: Set your `EXPO_ACCESS_TOKEN` in Supabase Edge Function secrets.
+3. **GitHub**: Add your `EXPO_TOKEN`, `SUPABASE_ACCESS_TOKEN`, and `SUPABASE_URL` to your repository secrets.
 
-### 1. Database Setup
-1. Open your Supabase SQL Editor.
-2. Run the `supabase-final-master.sql` script to initialize the schema, RLS policies, and RPCs.
-3. For push notifications, also deploy the Edge Function and webhook pipeline:
-   - SQL quick patch: `supabase-hotfix-push-pipeline.sql`
-   - Function path: `supabase/functions/push-ring-notification`
-   - Deploy command:
-     ```bash
-     supabase functions deploy push-ring-notification --no-verify-jwt
-     ```
-   - Required function secrets:
-     ```bash
-     supabase secrets set SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-     supabase secrets set SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
-     # Optional for secured Expo push API usage:
-     supabase secrets set EXPO_ACCESS_TOKEN=YOUR_EXPO_ACCESS_TOKEN
-     ```
+### 2. Mobile App Setup
+> [!IMPORTANT]
+> **Development Build Required**: Due to native Android permissions (`USE_FULL_SCREEN_INTENT`), this app requires a **Development Build** to function. Standard Expo Go will not handle background waking.
 
-### 2. Web Application (Guest/Web Owner)
-1. Install dependencies:
+1. Navigate to `mobile-owner/`
+2. Install dependencies: `npm install`
+3. Launch development build:
    ```bash
-   npm install
-   ```
-2. Configure `public/config.js` with your Supabase credentials:
-   ```javascript
-   window.__QR_CONFIG = {
-     SUPABASE_URL: "your-url",
-     SUPABASE_ANON_KEY: "your-anon-key"
-   };
-   ```
-3. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-
-### 3. Mobile Owner App
-1. Navigate to the mobile directory:
-   ```bash
-   cd mobile-owner
-   npm install
-   ```
-2. Setup environment variables in `mobile-owner/.env`:
-   ```bash
-   EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   ```
-3. Build/deploy with a development build or production build for full push behavior
-   (Expo Go has platform limitations, especially Android).
-4. Start the Expo development server:
-   ```bash
-   npx expo start
+   npx expo run:android  # For Android
+   npx expo run:ios      # For iOS
    ```
 
 ---
@@ -123,33 +63,18 @@ A professional, secure, and contactless "Smart QR Wireless Doorbell" system. It 
 
 ```text
 .
-├── mobile-owner/       # Expo/React Native app for owners
-├── public/             # Guest web interface (Static)
-│   ├── js/             # Core logic (auth, crypto, guest)
-│   ├── css/            # UI styles
-│   ├── index.html      # Guest landing page
-│   └── owner.html      # Legacy web owner dashboard
-├── supabase-final-master.sql  # Database schema & policies
-├── vercel.json         # Hosting configuration
-└── package.json        # Main project config
+├── mobile-owner/       # Expo/React Native app (Owner Dashboard)
+├── supabase/           # Edge Functions & CI/CD workflows
+├── public/             # Guest Web Interface (Vanilla JS/HTML)
+├── .github/            # Automated deployment workflows
+└── supabase-final-master.sql  # Full database schema & policies
 ```
 
 ---
 
-## 🔧 Recent Improvements
-
-This version includes several critical enhancements for production readiness:
-- **XSS Prevention**: Enhanced message sanitization on the guest side.
-- **PWA Optimization**: Improved manifest metadata and service worker cache strategy.
-- **Reliability**: Robust validation for Supabase responses and race condition fixes in UI interaction.
-- **Accessibility**: ARIA enhancements for better screen reader support.
-- **Security**: HTTPS enforcement and flattened RLS policies to prevent PostgreSQL recursion errors.
-
----
-
 ## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - Developed with ❤️ for secure and frictionless guest management.
+CENSE](LICENSE) for details.
 
 ---
 

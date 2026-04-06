@@ -12,13 +12,9 @@ export default function IncomingRingScreen() {
   
   const [pulseAnim] = useState(new Animated.Value(1));
 
-  // Load a ringtone (using expo-audio) - Add your custom mp3 to /assets/ringtone.mp3
-  let ringtoneSource = null;
-  try {
-     ringtoneSource = require('../assets/ringtone.mp3');
-  } catch (e) {
-     console.warn('Ringtone asset not found. Please add /assets/ringtone.mp3');
-  }
+  // Load a ringtone (using expo-audio)
+  // Fallback to remote URI if local asset is missing to prevent build crashes
+  const ringtoneSource = { uri: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3' };
   
   const player = useAudioPlayer(ringtoneSource);
 

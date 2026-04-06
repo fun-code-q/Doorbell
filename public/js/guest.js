@@ -26,11 +26,16 @@
   var infoTrigger = document.getElementById("info-trigger");
   var secureModal = document.getElementById("secure-modal");
   var modalClose = document.getElementById("modal-close");
-  var replyBtn = document.getElementById("reply-btn");
-
-  var currentRingId = window.sessionStorage.getItem("active_ring_id"); // Persistence in session
-  var supabaseClient = null;
   var qrToken = Utils.getQueryParam("t");
+  var activeRingStorageKey = qrToken ? "active_ring_id::" + qrToken : null;
+  var msgIconHtml = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="msg-svg"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+
+  // Remove legacy token-agnostic key so threads cannot bleed across door tokens.
+  if (window.sessionStorage.getItem("active_ring_id")) {
+    window.sessionStorage.removeItem("active_ring_id");
+  }
+  var currentRingId = activeRingStorageKey ? window.sessionStorage.getItem(activeRingStorageKey) : null;
+  var supabaseClient = null;
   var resolvedDoor = null;
   var ringResetTimer = null;
   var replySubscription = null;
@@ -40,11 +45,7 @@
 
   I18n.init();
 
-  if (modalClose) {
-    modalClose.addEventListener("click", function() {
-      secureModal.classList.remove("visible");
-    });
-  }
+
 
   var modalCloseReply = document.getElementById("modal-close-reply");
   if (modalCloseReply) {
@@ -64,21 +65,6 @@
   }
 
   if (messageToggle && messageDrawer) {
-    var msgIconHtml = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="msg-svg"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-    
-    function setInputAreaVisible(show) {
-      messageDrawer.classList.toggle("visible", show);
-      messageToggle.classList.toggle("active", show);
-      if (show) {
-        messageToggle.textContent = "×";
-        if (ringBtnText) ringBtnText.setAttribute("data-i18n", "send_button");
-      } else {
-        messageToggle.innerHTML = msgIconHtml;
-        if (ringBtnText) ringBtnText.setAttribute("data-i18n", "ring_button");
-      }
-      I18n.apply();
-    }
-
     messageToggle.addEventListener("click", function() {
       var currentlyVisible = messageDrawer.classList.contains("visible");
       setInputAreaVisible(!currentlyVisible);
@@ -90,8 +76,8 @@
         if (replyPanel) replyPanel.classList.remove("visible");
         setInputAreaVisible(true);
         if (messageInput) {
-          messageInput.value = ""; // Clear for fresh reply
-          setTimeout(() => messageInput.focus(), 300);
+          messageInput.value = "";
+          setTimeout(function() { messageInput.focus(); }, 300);
         }
         Utils.vibrate([20, 10]);
       });
@@ -121,6 +107,8 @@
     if (actionBar) actionBar.style.display = "none";
     if (statusError) statusError.classList.add("visible");
     ringBtn.disabled = true;
+    stopReplyWatchers();
+    clearActiveRingSession();
   }
 
   function resetUi() {
@@ -135,6 +123,19 @@
     }
   }
 
+  function rememberActiveRingSession(ringId) {
+    if (!activeRingStorageKey || !ringId) return;
+    currentRingId = ringId;
+    window.sessionStorage.setItem(activeRingStorageKey, ringId);
+  }
+
+  function clearActiveRingSession() {
+    currentRingId = null;
+    if (activeRingStorageKey) {
+      window.sessionStorage.removeItem(activeRingStorageKey);
+    }
+  }
+
   function startRinging() {
     ringBtn.disabled = true;
     if (ringContainer) ringContainer.classList.add("is-ringing");
@@ -146,10 +147,11 @@
   }
 
   function setInputAreaVisible(show) {
+    if (!messageDrawer || !messageToggle) return;
     messageDrawer.classList.toggle("visible", show);
     messageToggle.classList.toggle("active", show);
     if (show) {
-      messageToggle.textContent = "×";
+      messageToggle.textContent = "X";
       if (ringBtnText) ringBtnText.setAttribute("data-i18n", currentRingId ? "send" : "send_button");
     } else {
       messageToggle.innerHTML = msgIconHtml;
@@ -241,6 +243,7 @@
 
       if (row.status === "dismissed" || row.status === "responded") {
         stopReplyWatchers();
+        clearActiveRingSession();
         resetUi();
       }
     } catch (err) {
@@ -272,14 +275,19 @@
         if (row) {
           showReply(row.owner_reply, row.chat_history);
           if (row.status === 'dismissed' || row.status === 'responded') {
-            // Optional: Auto-reset UI if owner closes thread
+            stopReplyWatchers();
+            clearActiveRingSession();
+            resetUi();
           }
         }
 
       })
       .subscribe(function(status) {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        if (status === "SUBSCRIBED") {
+          console.log("Guest: Realtime subscription active.");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           // Realtime can be blocked for anon clients; polling keeps live replies reliable.
+          console.warn("Guest: Realtime failed, falling back to polling.");
           startReplyPolling(ringId);
         }
       });
@@ -295,6 +303,10 @@
       resolvedDoor = data;
       if (locationName && data.door_name) { locationName.textContent = data.door_name; }
       ringBtn.disabled = false;
+      if (currentRingId) {
+        startReplySubscription(currentRingId);
+        startReplyPolling(currentRingId);
+      }
     } catch (err) {
       console.error(err);
       setInvalidState("System Unavailable");
@@ -303,9 +315,7 @@
   resolve();
 
   function updateOffline() {
-    offlineIndicator.classList.toggle("visible", !navigator.onLine);
-    var connectionDot = document.getElementById("status-dot");
-    if (connectionDot) connectionDot.classList.toggle("online", navigator.onLine);
+    if (offlineIndicator) offlineIndicator.classList.toggle("visible", !navigator.onLine);
   }
   window.addEventListener("online", updateOffline);
   window.addEventListener("offline", updateOffline);
@@ -332,7 +342,8 @@
           res = await supabaseClient.rpc("append_ring_message", {
             p_ring_id: currentRingId,
             p_role: "guest",
-            p_message: msg || "Follow-up signal"
+            p_message: msg || "Follow-up signal",
+            p_qr_token: qrToken
           });
         } else {
           // CREATE new ring
@@ -351,8 +362,7 @@
         playGuestChime();
         
         if (!currentRingId && ring && ring.id) {
-          currentRingId = ring.id;
-          window.sessionStorage.setItem("active_ring_id", currentRingId);
+          rememberActiveRingSession(ring.id);
           startReplySubscription(currentRingId);
           startReplyPolling(currentRingId);
         }
@@ -367,6 +377,7 @@
         if (typeof setInputAreaVisible === "function") setInputAreaVisible(false);
 
         if (timestampDisplay) timestampDisplay.textContent = new Date().toLocaleTimeString();
+        if (timestampDisplay) timestampDisplay.style.display = "block";
         if (currentRingId) {
           // Refresh chat thread immediately after guest sends
           pollRingReplyOnce(currentRingId);
@@ -374,6 +385,11 @@
       } catch (err) {
         console.error("Signal error:", err);
         hideLoading();
+        var errMsg = (err && err.message ? String(err.message) : "").toLowerCase();
+        if (currentRingId && (errMsg.indexOf("ring not found") !== -1 || errMsg.indexOf("token mismatch") !== -1 || errMsg.indexOf("access denied") !== -1)) {
+          clearActiveRingSession();
+          stopReplyWatchers();
+        }
         if (!currentRingId) resetUi();
         Utils.showToast("Transmission Failed", "error");
       }
@@ -383,8 +399,9 @@
 
   document.querySelectorAll('[data-action="retry-capture"]').forEach(el => {
     el.addEventListener("click", () => {
-      stopReplySubscription();
-      stopReplyPolling();
+      stopReplyWatchers();
+      clearActiveRingSession();
+      setInputAreaVisible(false);
       resetUi();
       statusError.classList.remove("visible");
       actionBar.style.display = "flex";
@@ -394,3 +411,4 @@
 
   window.addEventListener("beforeunload", stopReplyWatchers);
 })();
+
