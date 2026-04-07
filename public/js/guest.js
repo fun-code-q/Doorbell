@@ -351,6 +351,7 @@
           res = await supabaseClient.rpc("create_doorbell_ring_by_token", {
             p_qr_token: qrToken,
             p_guest_message: msg,
+            p_guest_message_encrypted: false,
             p_user_agent_hash: Utils.getBrowserHash()
           });
         }

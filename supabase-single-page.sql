@@ -1,6 +1,6 @@
--- QR Doorbell Database Setup (Master Script v2.1)
--- Consolidated from Setup + Recursion Fixes. Idempotent and Secure.
--- Run this in your Supabase SQL Editor.
+-- QR Doorbell Database Setup (Single-File Deploy Script v2.2)
+-- App-aligned, idempotent, and safe for fresh or existing Supabase projects.
+-- Run this full file in Supabase SQL Editor.
 
 -- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -418,6 +418,8 @@ SECURITY DEFINER
 SET search_path TO public, pg_temp
 SET row_security = off;
 
+DROP FUNCTION IF EXISTS public.create_doorbell_ring_by_token(TEXT, TEXT, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.create_doorbell_ring_by_token(TEXT, TEXT, BOOLEAN, TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.create_doorbell_ring_by_token(TEXT, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION public.create_doorbell_ring_by_token(
   p_qr_token TEXT,
@@ -599,6 +601,11 @@ $$ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO public, pg_temp
 SET row_security = off;
+
+GRANT EXECUTE ON FUNCTION public.ensure_owner_house() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_house(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.add_house_member_by_email(UUID, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.add_door_member_by_username(UUID, TEXT) TO authenticated;
 
 GRANT EXECUTE ON FUNCTION public.resolve_qr_token(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_doorbell_ring_by_token(TEXT, TEXT, BOOLEAN, TEXT) TO anon, authenticated;
@@ -858,11 +865,25 @@ EXECUTE FUNCTION public.log_audit_event();
 -- 8. REALTIME
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'doorbell_rings') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.doorbell_rings;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'door_points') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.door_points;
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND tablename = 'doorbell_rings'
+        AND schemaname = 'public'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.doorbell_rings;
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND tablename = 'door_points'
+        AND schemaname = 'public'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.door_points;
+    END IF;
   END IF;
 END $$;
 DROP POLICY IF EXISTS audit_log_delete_owner ON public.audit_log;
@@ -882,9 +903,119 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-INSERT INTO public.system_settings (setting_key, setting_value)
-VALUES ('push_ring_webhook_url', NULL)
-ON CONFLICT (setting_key) DO NOTHING;
+-- Legacy-safe normalization in case system_settings already exists with old column names.
+ALTER TABLE public.system_settings
+  ADD COLUMN IF NOT EXISTS setting_key TEXT,
+  ADD COLUMN IF NOT EXISTS setting_value TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+DO $$
+DECLARE
+  v_key_col TEXT;
+  v_value_col TEXT;
+BEGIN
+  SELECT c.column_name
+  INTO v_key_col
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'system_settings'
+    AND c.column_name IN ('key', 'name', 'setting', 'setting_name')
+  ORDER BY CASE c.column_name
+    WHEN 'key' THEN 1
+    WHEN 'name' THEN 2
+    WHEN 'setting' THEN 3
+    WHEN 'setting_name' THEN 4
+    ELSE 99
+  END
+  LIMIT 1;
+
+  IF v_key_col IS NOT NULL THEN
+    EXECUTE format(
+      'UPDATE public.system_settings SET setting_key = COALESCE(setting_key, %I::text) WHERE setting_key IS NULL',
+      v_key_col
+    );
+  END IF;
+
+  SELECT c.column_name
+  INTO v_value_col
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'system_settings'
+    AND c.column_name IN ('value', 'val', 'setting_val', 'setting_value_text')
+  ORDER BY CASE c.column_name
+    WHEN 'value' THEN 1
+    WHEN 'val' THEN 2
+    WHEN 'setting_val' THEN 3
+    WHEN 'setting_value_text' THEN 4
+    ELSE 99
+  END
+  LIMIT 1;
+
+  IF v_value_col IS NOT NULL THEN
+    EXECUTE format(
+      'UPDATE public.system_settings SET setting_value = COALESCE(setting_value, %I::text) WHERE setting_value IS NULL',
+      v_value_col
+    );
+  END IF;
+END $$;
+
+UPDATE public.system_settings
+SET created_at = timezone('utc'::text, now())
+WHERE created_at IS NULL;
+
+UPDATE public.system_settings
+SET updated_at = timezone('utc'::text, now())
+WHERE updated_at IS NULL;
+
+ALTER TABLE public.system_settings
+  ALTER COLUMN created_at SET DEFAULT timezone('utc'::text, now()),
+  ALTER COLUMN updated_at SET DEFAULT timezone('utc'::text, now());
+
+DO $$
+DECLARE
+  v_seq_name TEXT;
+  v_max_id BIGINT;
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.system_settings
+    WHERE setting_key = 'push_ring_webhook_url'
+  ) THEN
+    RETURN;
+  END IF;
+
+  -- If legacy table has integer PK + out-of-sync sequence, repair before insert.
+  SELECT pg_get_serial_sequence('public.system_settings', 'id')
+  INTO v_seq_name;
+
+  IF v_seq_name IS NOT NULL THEN
+    EXECUTE 'SELECT COALESCE(MAX(id), 0) FROM public.system_settings' INTO v_max_id;
+    EXECUTE format(
+      'SELECT setval(%L, %s, false)',
+      v_seq_name,
+      (v_max_id + 1)::TEXT
+    );
+  END IF;
+
+  BEGIN
+    INSERT INTO public.system_settings (setting_key, setting_value)
+    VALUES ('push_ring_webhook_url', NULL);
+  EXCEPTION WHEN unique_violation THEN
+    -- Final fallback for legacy odd schemas (e.g. fixed id=1 rows).
+    UPDATE public.system_settings
+    SET
+      setting_key = 'push_ring_webhook_url',
+      setting_value = COALESCE(setting_value, NULL),
+      updated_at = timezone('utc'::text, now())
+    WHERE ctid IN (
+      SELECT ctid
+      FROM public.system_settings
+      WHERE setting_key IS NULL OR trim(setting_key) = ''
+      LIMIT 1
+    );
+  END;
+END $$;
 
 REVOKE ALL ON TABLE public.system_settings FROM anon, authenticated;
 
@@ -1040,6 +1171,9 @@ $$ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO public, auth, pg_temp
 SET row_security = off;
+
+GRANT EXECUTE ON FUNCTION public.register_push_token(TEXT, UUID, TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.deactivate_push_token(TEXT) TO authenticated;
 
 DROP FUNCTION IF EXISTS public.notify_ring_push_webhook() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_ring_push_webhook()
