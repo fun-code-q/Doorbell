@@ -206,6 +206,13 @@ Deno.serve(async (req: Request) => {
         ring.house_id
       )}`,
     },
+    // New: Specific Android "Wake up" metadata
+    android: {
+      priority: 'max',
+      vibrationPattern: [0, 1000, 500, 1000],
+      lockscreenVisibility: 'public',
+      category: 'call',
+    },
   }));
 
   const messages: PushMessage[] = [...visibleMessages, ...headlessWakeMessages];

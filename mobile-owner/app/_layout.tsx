@@ -138,14 +138,23 @@ if (!TaskManager.isTaskDefined(BACKGROUND_NOTIFICATION_TASK)) {
       return;
     }
 
-    const notification = (data as { notification?: Notifications.Notification } | undefined)?.notification;
-    const payload =
-      notification?.request?.content?.data ||
-      (data as { data?: Record<string, unknown> } | undefined)?.data;
+    const payload = (data as { data?: Record<string, unknown> } | undefined)?.data;
     if (!isRingNotificationPayload(payload)) return;
 
+    // 1. Wake the system channel
     await ensureDoorbellRingChannel();
-    await displayIncomingRingViaSystem(payload);
+    
+    // 2. Proactively bring the app to visible state if it's android
+    if (Platform.OS === 'android') {
+      try {
+        await ensureCallKeepReady();
+        RNCallKeep.backToForeground();
+        // 3. Display the native incoming UI
+        await displayIncomingRingViaSystem(payload);
+      } catch (e) {
+        console.error('Failed to wake foreground from background task:', e);
+      }
+    }
   });
 }
 
@@ -180,10 +189,14 @@ function RootNavigator() {
 
     if (Platform.OS === 'android') {
       (async () => {
-        const alreadyPrompted = await Storage.get<boolean>(BATTERY_OPT_PROMPT_KEY, false);
+        const alreadyPrompted = await Storage.get<boolean>('permission_prompt_v3', false);
         if (alreadyPrompted) return;
-        await Storage.set(BATTERY_OPT_PROMPT_KEY, true);
+        await Storage.set('permission_prompt_v3', true);
+        
+        // Request deep sleeping exclusion
         await AndroidPermissionHelper.requestIgnoreBatteryOptimizations();
+        // Request overlay (Display over other apps)
+        await AndroidPermissionHelper.requestOverlayPermission();
       })();
     }
   }, [isAuthenticated, isLoading]);
