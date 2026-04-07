@@ -12,9 +12,9 @@ export default function IncomingRingScreen() {
   
   const [pulseAnim] = useState(new Animated.Value(1));
 
-  // Load a ringtone (using expo-audio)
-  // Fallback to remote URI if local asset is missing to prevent build crashes
-  const ringtoneSource = { uri: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3' };
+  // 1. Load a high-quality 15-second doorbell ringtone
+  // This replaces the short 1-second preview.
+  const ringtoneSource = { uri: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_fcea27316f.mp3' };
   
   const player = useAudioPlayer(ringtoneSource);
 

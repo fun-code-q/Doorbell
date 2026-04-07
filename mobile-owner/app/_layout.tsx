@@ -28,6 +28,7 @@ import {
   isRingNotificationPayload,
   normalizeRingPayload,
 } from '../lib/notifications';
+import * as Linking from 'expo-linking';
 
 const BATTERY_OPT_PROMPT_KEY = 'battery_opt_prompt_shown_v2';
 const isAndroidExpoGo = Constants.appOwnership === 'expo' && Platform.OS === 'android';
@@ -148,8 +149,16 @@ if (!TaskManager.isTaskDefined(BACKGROUND_NOTIFICATION_TASK)) {
     if (Platform.OS === 'android') {
       try {
         await ensureCallKeepReady();
+        
+        // 1. Force the app to foreground if it was killed
+        const { ringId, doorLocation, houseId } = normalizeRingPayload(payload);
+        const url = `qrvault://incoming?ring_id=${ringId}&door_location=${encodeURIComponent(doorLocation)}` + 
+                    (houseId ? `&house_id=${houseId}` : '');
+        
+        await Linking.openURL(url);
+        
+        // 2. Display the native incoming UI as a secondary anchor
         RNCallKeep.backToForeground();
-        // 3. Display the native incoming UI
         await displayIncomingRingViaSystem(payload);
       } catch (e) {
         console.error('Failed to wake foreground from background task:', e);
