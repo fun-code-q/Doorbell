@@ -14,7 +14,7 @@
     "apk:build": "npx -y @bubblewrap/cli build"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.106.2"
   },
   "devDependencies": {
     "eslint": "^10.1.0",
