@@ -1,277 +1,259 @@
-// @ts-nocheck
+// =========================================================================
+// push-ring-notification
+// Called by the pg_net trigger on doorbell_rings INSERT. Authenticates via
+// HMAC over (timestamp || '.' || body) using a shared secret in
+// PUSH_WEBHOOK_SECRET, then fans the ring out over FCM HTTP v1 to every
+// active push subscription matching the ring (mute / push_enabled honored
+// by ring_push_dispatch SQL).
+//
+// Required env (Supabase Dashboard → Edge Functions → Secrets):
+//   SUPABASE_URL                  (auto-injected)
+//   SUPABASE_SERVICE_ROLE_KEY     (auto-injected)
+//   PUSH_WEBHOOK_SECRET           (you set; same value stored in system_settings)
+//   FIREBASE_SERVICE_ACCOUNT_JSON (raw JSON; new key minted in USER_ACTIONS step 1)
+//
+// Optional env:
+//   FIREBASE_PROJECT_ID           (defaults to project_id in the service-account JSON)
+//   ALLOWED_WEBHOOK_CLOCK_DRIFT_SEC (default 300)
+// =========================================================================
+
+// @ts-nocheck — Deno globals, type-checked at deploy time
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+import { verifyHmacSignature } from '../_shared/hmac.ts';
+import {
+  parseServiceAccount,
+  sendFcmMessage,
+  type FcmMessage,
+  type ServiceAccount,
+} from '../_shared/fcm.ts';
 
-type RingPayload = {
-  ring_id?: string;
-  house_id?: string;
-  door_location?: string;
-  created_at?: string;
-};
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const PUSH_WEBHOOK_SECRET = Deno.env.get('PUSH_WEBHOOK_SECRET') ?? '';
+const FIREBASE_SA_RAW = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON') ?? '';
+const PROJECT_ID_OVERRIDE = Deno.env.get('FIREBASE_PROJECT_ID') ?? '';
+const CLOCK_DRIFT_SEC = parseInt(
+  Deno.env.get('ALLOWED_WEBHOOK_CLOCK_DRIFT_SEC') ?? '300',
+  10,
+);
 
-type PushMessage = {
-  to: string;
-  title?: string;
-  body?: string;
-  sound?: 'default';
-  priority: 'default' | 'normal' | 'high';
-  channelId?: string;
-  ttl?: number;
-  data: Record<string, string>;
-};
+const CHANNEL_ID = 'doorbell_rings';
+const TTL_SECONDS = 300;
+const PRIORITY = 'HIGH' as const;
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const EXPO_ACCESS_TOKEN = Deno.env.get('EXPO_ACCESS_TOKEN') || '';
-
-const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
-const EXPO_CHUNK_SIZE = 100;
-const RING_NOTIFICATION_CHANNEL_ID = 'doorbell-rings';
-const RING_NOTIFICATION_TTL_SECONDS = 300;
-
-function jsonResponse(payload: Record<string, unknown>, status = 200) {
+function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
 }
 
-function isExpoPushToken(token: string): boolean {
-  return token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken[');
+function bootCheck() {
+  const missing: string[] = [];
+  if (!SUPABASE_URL) missing.push('SUPABASE_URL');
+  if (!SERVICE_ROLE) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  if (!PUSH_WEBHOOK_SECRET) missing.push('PUSH_WEBHOOK_SECRET');
+  if (!FIREBASE_SA_RAW) missing.push('FIREBASE_SERVICE_ACCOUNT_JSON');
+  if (missing.length) {
+    return json(
+      { error: 'Edge Function not configured', missing },
+      500,
+    );
+  }
+  return null;
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
+let serviceAccount: ServiceAccount | null = null;
+function getServiceAccount(): ServiceAccount {
+  if (!serviceAccount) {
+    serviceAccount = parseServiceAccount(FIREBASE_SA_RAW);
+    if (PROJECT_ID_OVERRIDE) serviceAccount.project_id = PROJECT_ID_OVERRIDE;
   }
-  return out;
+  return serviceAccount;
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
-  }
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return jsonResponse(
-      { error: 'Missing function secrets: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY' },
-      500
-    );
-  }
+  const cfgErr = bootCheck();
+  if (cfgErr) return cfgErr;
 
-  let payload: RingPayload;
-  try {
-    payload = await req.json();
-  } catch {
-    return jsonResponse({ error: 'Invalid JSON body' }, 400);
-  }
+  const bodyText = await req.text();
+  const ts = req.headers.get('x-webhook-timestamp') ?? '';
+  const sig = req.headers.get('x-webhook-signature') ?? '';
+  const bearer = req.headers.get('authorization') ?? '';
 
-  const ringId = (payload.ring_id || '').trim();
-  if (!ringId) {
-    return jsonResponse({ error: 'ring_id is required' }, 400);
+  // Belt + suspenders: bearer match is cheap, HMAC verifies body integrity.
+  if (bearer !== `Bearer ${PUSH_WEBHOOK_SECRET}`) {
+    return json({ error: 'Unauthorized' }, 401);
   }
+  const sigOk = await verifyHmacSignature({
+    secret: PUSH_WEBHOOK_SECRET,
+    timestamp: ts,
+    body: bodyText,
+    signatureHex: sig,
+    maxAgeSec: CLOCK_DRIFT_SEC,
+  });
+  if (!sigOk) return json({ error: 'Bad signature' }, 401);
 
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  let payload: {
+    // Ring event (default; ring_id present, no event_type)
+    ring_id?: string;
+    door_location?: string;
+    guest_message_encrypted?: boolean;
+    // Invitation event
+    event_type?: 'invitation' | 'ring';
+    invitation_id?: string;
+    house_id?: string;
+    invited_email?: string;
+  };
+  try { payload = JSON.parse(bodyText); } catch { return json({ error: 'Bad JSON' }, 400); }
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const ringResult = await admin
-    .from('doorbell_rings')
-    .select('id,house_id,door_point_id,door_location,guest_message')
-    .eq('id', ringId)
-    .maybeSingle();
+  // Invitation push fan-out.
+  if (payload.event_type === 'invitation') {
+    const invId = (payload.invitation_id ?? '').trim();
+    if (!invId) return json({ error: 'invitation_id required' }, 400);
+    const inv = await admin.rpc('invitation_push_dispatch', { p_invitation_id: invId });
+    if (inv.error) return json({ error: inv.error.message }, 500);
+    const rows = (inv.data ?? []) as Array<{ invitation_id: string; house_id: string; house_name: string; fcm_token: string }>;
+    if (!rows.length) return json({ ok: true, invitation_id: invId, sent: 0, skipped: 'no_recipients' });
 
-  if (ringResult.error) {
-    return jsonResponse({ error: ringResult.error.message }, 500);
-  }
-  if (!ringResult.data) {
-    return jsonResponse({ ok: true, skipped: 'ring_not_found', ring_id: ringId });
-  }
-
-  const ring = ringResult.data;
-
-  const membersResult = await admin
-    .from('house_members')
-    .select('user_id')
-    .eq('house_id', ring.house_id);
-
-  if (membersResult.error) {
-    return jsonResponse({ error: membersResult.error.message }, 500);
-  }
-
-  const userIds = Array.from(new Set((membersResult.data || []).map((m: any) => m.user_id).filter(Boolean)));
-  if (!userIds.length) {
-    return jsonResponse({ ok: true, ring_id: ringId, sent: 0, skipped: 'no_house_members' });
+    const sa = getServiceAccount();
+    const result = await Promise.all(rows.map((r) => sendFcmMessage(sa, {
+      token: r.fcm_token,
+      data: {
+        type: 'invitation',
+        invitation_id: r.invitation_id,
+        house_id: r.house_id,
+        house_name: r.house_name,
+      },
+      android: { priority: 'NORMAL', ttl: '86400s' },
+    })));
+    const sent = result.filter((x) => x.ok).length;
+    return json({ ok: true, invitation_id: invId, sent });
   }
 
-  let mutedUserIds = new Set<string>();
-  if (ring.door_point_id) {
-    const mutedResult = await admin
-      .from('door_point_members')
-      .select('user_id,is_muted')
-      .eq('door_point_id', ring.door_point_id)
-      .in('user_id', userIds);
+  const ringId = (payload.ring_id ?? '').trim();
+  if (!ringId) return json({ error: 'ring_id required' }, 400);
 
-    if (mutedResult.error) {
-      return jsonResponse({ error: mutedResult.error.message }, 500);
-    }
-
-    mutedUserIds = new Set(
-      (mutedResult.data || [])
-        .filter((entry: any) => entry.is_muted === true)
-        .map((entry: any) => entry.user_id)
-        .filter(Boolean)
-    );
+  // One round-trip: SECURITY DEFINER RPC returns the join across rings,
+  // members, mute, push_enabled and active tokens.
+  const dispatch = await admin.rpc('ring_push_dispatch', { p_ring_id: ringId });
+  if (dispatch.error) return json({ error: dispatch.error.message }, 500);
+  const rows = (dispatch.data ?? []) as Array<{
+    ring_id: string;
+    house_id: string;
+    door_point_id: string | null;
+    door_location: string;
+    guest_message_encrypted: boolean;
+    ringtone_resource: string | null;
+    fcm_token: string;
+    user_id: string;
+    platform: string;
+  }>;
+  if (!rows.length) {
+    return json({ ok: true, ring_id: ringId, sent: 0, skipped: 'no_recipients' });
   }
 
-  const settingsResult = await admin
-    .from('owner_settings')
-    .select('user_id,push_enabled')
-    .in('user_id', userIds);
-
-  if (settingsResult.error) {
-    return jsonResponse({ error: settingsResult.error.message }, 500);
-  }
-
-  const pushEnabledMap = new Map<string, boolean>();
-  (settingsResult.data || []).forEach((entry: any) => {
-    pushEnabledMap.set(entry.user_id, entry.push_enabled !== false);
-  });
-
-  const eligibleUserIds = (userIds as string[]).filter((userId: string) => {
-    if (mutedUserIds.has(userId)) return false;
-    const pushEnabled = pushEnabledMap.get(userId);
-    return pushEnabled !== false;
-  });
-
-  if (!eligibleUserIds.length) {
-    return jsonResponse({ ok: true, ring_id: ringId, sent: 0, skipped: 'no_eligible_recipients' });
-  }
-
-  const subsResult = await admin
-    .from('push_subscriptions')
-    .select('expo_push_token,user_id,platform')
-    .in('user_id', eligibleUserIds)
-    .eq('is_active', true);
-
-  if (subsResult.error) {
-    return jsonResponse({ error: subsResult.error.message }, 500);
-  }
-
-  const subscriptions = (subsResult.data || []).filter((s: any) => isExpoPushToken(s.expo_push_token));
-  if (!subscriptions.length) {
-    return jsonResponse({ ok: true, ring_id: ringId, sent: 0, skipped: 'no_push_subscriptions' });
-  }
-  const androidSubscriptions = subscriptions.filter(
-    (sub: any) => String(sub.platform || '').toLowerCase() === 'android'
-  );
-
-  const doorLocation = (ring.door_location || 'Doorbell').toString();
-  const bodyText = (ring.guest_message || 'Someone is at the door.') as string;
-
-  const visibleMessages: PushMessage[] = subscriptions.map((sub: any) => ({
-    to: sub.expo_push_token,
-    title: `Doorbell: ${doorLocation}`,
-    body: bodyText,
-    sound: 'default',
-    priority: 'high',
-    channelId: RING_NOTIFICATION_CHANNEL_ID,
-    ttl: RING_NOTIFICATION_TTL_SECONDS,
-    data: {
-      type: 'ring_call',
-      ring_id: ring.id,
-      house_id: ring.house_id,
-      door_location: doorLocation,
-      delivery: 'visible',
-      url: `qrvault://incoming?ring_id=${encodeURIComponent(ring.id)}&house_id=${encodeURIComponent(
-        ring.house_id
-      )}`,
-    },
+  // Build minimal, data-only FCM payloads. The owner app constructs the
+  // CallStyle notification natively because FCM "notification" payloads are
+  // routed to the system tray when the app is killed, but we want the
+  // FcmService to wake first so it can post a CallStyle + start the
+  // IncomingRingActivity. Data-only payloads with priority=HIGH wake the
+  // app even from Doze on Android 14+ (Play policy permitting; users must
+  // have granted exact-alarm / battery exemption — see PowerUserWizard).
+  const sa = getServiceAccount();
+  const t0 = Date.now();
+  const result = await Promise.all(rows.map(async (r) => {
+    const msg: FcmMessage = {
+      token: r.fcm_token,
+      data: {
+        type: 'ring_call',
+        ring_id: r.ring_id,
+        house_id: r.house_id,
+        door_point_id: r.door_point_id ?? '',
+        door_location: r.door_location,
+        encrypted: String(r.guest_message_encrypted ?? false),
+        channel_id: CHANNEL_ID,
+        priority: PRIORITY,
+        // Batch M #4: per-door ringtone identifier carried to the device.
+        ringtone_resource: r.ringtone_resource ?? '',
+      },
+      android: {
+        priority: PRIORITY,
+        ttl: `${TTL_SECONDS}s`,
+        direct_boot_ok: false,
+      },
+    };
+    const send = await sendFcmMessage(sa, msg);
+    return { row: r, send };
   }));
+  const totalLatency = Date.now() - t0;
 
-  // Dual-send strategy:
-  // 1) visible ring notification for guaranteed user-facing alert.
-  // 2) headless wake payload to run JS task for call-style/full-screen flow when possible.
-  const headlessWakeMessages: PushMessage[] = androidSubscriptions.map((sub: any) => ({
-    to: sub.expo_push_token,
-    priority: 'high',
-    ttl: RING_NOTIFICATION_TTL_SECONDS,
-    data: {
-      type: 'ring_call',
-      ring_id: ring.id,
-      house_id: ring.house_id,
-      door_location: doorLocation,
-      delivery: 'headless',
-      url: `qrvault://incoming?ring_id=${encodeURIComponent(ring.id)}&house_id=${encodeURIComponent(
-        ring.house_id
-      )}`,
-    },
-    // New: Specific Android "Wake up" metadata
-    android: {
-      priority: 'max',
-      vibrationPattern: [0, 1000, 500, 1000],
-      lockscreenVisibility: 'public',
-      category: 'call',
-    },
-  }));
+  const sent = result.filter((x) => x.send.ok).length;
+  const failed = result.filter((x) => !x.send.ok);
+  const unregistered = failed
+    .filter((x) => !x.send.ok && (
+      (x.send as { errorCode?: string }).errorCode === 'UNREGISTERED'
+      || (x.send as { errorCode?: string }).errorCode === 'NOT_FOUND'
+    ))
+    .map((x) => (x.send as { token: string }).token);
 
-  const messages: PushMessage[] = [...visibleMessages, ...headlessWakeMessages];
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  };
-  if (EXPO_ACCESS_TOKEN) {
-    headers.Authorization = `Bearer ${EXPO_ACCESS_TOKEN}`;
+  if (unregistered.length) {
+    await admin.rpc('mark_tokens_unregistered', { p_tokens: unregistered });
   }
 
-  let sent = 0;
-  const invalidTokens = new Set<string>();
-  const chunks = chunk(messages, EXPO_CHUNK_SIZE);
+  // Batch C #16: record every send attempt for monitoring.
+  await admin.rpc('record_push_dispatch', {
+    p_rows: result.map((x) => ({
+      ring_id: x.row.ring_id,
+      user_id: x.row.user_id,
+      fcm_token_tail: x.row.fcm_token.slice(-8),
+      outcome: x.send.ok
+        ? 'sent'
+        : ((x.send as { errorCode?: string }).errorCode === 'UNREGISTERED'
+            || (x.send as { errorCode?: string }).errorCode === 'NOT_FOUND')
+          ? 'unregistered'
+          : 'failed',
+      error_code: (x.send as { errorCode?: string }).errorCode ?? null,
+      http_status: (x.send as { status?: number }).status ?? (x.send.ok ? 200 : null),
+      latency_ms: Math.round(totalLatency / Math.max(1, result.length)),
+    })),
+  }).catch(() => { /* monitoring write is best-effort; never fail a delivery for it */ });
 
-  for (const part of chunks) {
-    const res = await fetch(EXPO_PUSH_ENDPOINT, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(part),
-    });
-
-    const result = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return jsonResponse(
-        {
-          error: 'Expo push request failed',
-          status: res.status,
-          details: result,
-        },
-        502
-      );
-    }
-
-    const tickets = Array.isArray(result?.data) ? result.data : [];
-
-    sent += part.length;
-
-    tickets.forEach((ticket: any, idx: number) => {
-      if (ticket?.status === 'error' && ticket?.details?.error === 'DeviceNotRegistered') {
-        invalidTokens.add(part[idx].to);
-      }
-    });
+  // Batch C #6: if EVERYTHING failed (likely FCM/network outage, not a per-token
+  // problem), enqueue the original payload for retry by the cron worker.
+  if (sent === 0 && failed.length > 0 && unregistered.length === 0) {
+    await admin.rpc('enqueue_push_dispatch_failure', {
+      p_payload: { ring_id: ringId, retry: true },
+      p_error: failed[0]?.send && (failed[0].send as { errorCode?: string }).errorCode
+        ? (failed[0].send as { errorCode?: string }).errorCode
+        : 'all_failed',
+    }).catch(() => { /* best-effort */ });
   }
 
-  if (invalidTokens.size) {
+  // If this is a retry attempt that finally succeeded, mark the DLQ row.
+  if (req.headers.get('x-webhook-retry') === 'true' && sent > 0) {
     await admin
-      .from('push_subscriptions')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
-      .in('expo_push_token', Array.from(invalidTokens));
+      .from('push_dispatch_failures')
+      .update({ status: 'sent', last_attempt_at: new Date().toISOString() })
+      .eq('ring_id', ringId)
+      .in('status', ['retrying', 'pending']);
   }
 
-  return jsonResponse({
+  return json({
     ok: true,
     ring_id: ringId,
     sent,
-    sent_visible: visibleMessages.length,
-    sent_headless: headlessWakeMessages.length,
-    invalid_tokens_deactivated: invalidTokens.size,
+    failed: failed.length,
+    unregistered: unregistered.length,
+    errors: failed.slice(0, 10).map((f) => ({
+      token: (f.send as { token: string }).token.slice(0, 16) + '…',
+      code: (f.send as { errorCode?: string }).errorCode ?? 'UNKNOWN',
+    })),
   });
 });

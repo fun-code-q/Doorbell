@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Per-app language picker exposes these locales in system Settings →
+  Apps → QR Vault → Language (Android 13+). Order matters: shown to
+  users in this order. Keep en + de first since they're 100% reviewed;
+  the others (es / fr / tr / pl) started as machine translations and
+  should ideally see a native-reviewer pass before release.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+   <locale android:name="en"/>
+   <locale android:name="de"/>
+   <locale android:name="es"/>
+   <locale android:name="fr"/>
+   <locale android:name="tr"/>
+   <locale android:name="pl"/>
+</locale-config>

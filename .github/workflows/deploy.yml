@@ -1,8 +1,12 @@
-name: Secure PWA Deploy
+name: Deploy Guest PWA
 
 on:
   push:
-    branches: [ main ]
+    branches: ["main"]
+    paths:
+      - "public/**"
+      - "scripts/**"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 permissions:
@@ -11,51 +15,98 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
   build-and-deploy:
+    name: Build + GitHub Pages deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
 
-      - name: Validate Required Secrets
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate required secrets
+        env:
+          SUPABASE_URL:       ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY:  ${{ secrets.SUPABASE_ANON_KEY }}
+          VERIFY_RING_URL:    ${{ secrets.VERIFY_RING_URL }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then
-            echo "Error: Missing required GitHub secrets (SUPABASE_URL, SUPABASE_ANON_KEY)."
+          missing=()
+          [ -z "$SUPABASE_URL" ]       && missing+=("SUPABASE_URL")
+          [ -z "$SUPABASE_ANON_KEY" ]  && missing+=("SUPABASE_ANON_KEY")
+          [ -z "$VERIFY_RING_URL" ]    && missing+=("VERIFY_RING_URL")
+          [ -z "$TURNSTILE_SITE_KEY" ] && missing+=("TURNSTILE_SITE_KEY")
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::Missing required GitHub secrets: ${missing[*]}"
             exit 1
           fi
 
-      - name: Inject Secrets into config.js
+      - name: Generate runtime-config.js (no sed)
+        env:
+          SUPABASE_URL:       ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY:  ${{ secrets.SUPABASE_ANON_KEY }}
+          VERIFY_RING_URL:    ${{ secrets.VERIFY_RING_URL }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          EXPECTED_ORIGIN:    ${{ vars.EXPECTED_ORIGIN }}
         run: |
-          sed -i "s|REPLACE_WITH_YOUR_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" public/config.js
-          sed -i "s|REPLACE_WITH_YOUR_SUPABASE_ANON_KEY|${{ secrets.SUPABASE_ANON_KEY }}|g" public/config.js
+          # Writing a separate file we load BEFORE config.js means escapes,
+          # ampersands, and pipe characters in any value are no longer a
+          # concern — JSON.stringify is the right tool, not sed.
+          node -e '
+            const fs = require("fs");
+            const cfg = {
+              SUPABASE_URL:       process.env.SUPABASE_URL,
+              SUPABASE_ANON_KEY:  process.env.SUPABASE_ANON_KEY,
+              VERIFY_RING_URL:    process.env.VERIFY_RING_URL,
+              TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
+              EXPECTED_ORIGIN:    process.env.EXPECTED_ORIGIN || "",
+            };
+            const body = `window.__QR_CONFIG = ${JSON.stringify(cfg)};\n`;
+            fs.writeFileSync("public/runtime-config.js", body);
+          '
+          echo "runtime-config.js generated ($(wc -c < public/runtime-config.js) bytes)"
 
-      - name: Verify Secret Injection (Safe Check)
+      - name: Prepend runtime-config.js to index.html
         run: |
-          if grep -q "REPLACE_WITH_YOUR_SUPABASE_URL" public/config.js || grep -q "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY" public/config.js; then
-            echo "Error: Secrets were not properly injected!"
+          # Insert as the very first <script>, before config.js, so the
+          # window.__QR_CONFIG shim is populated by the time config.js reads it.
+          sed -i 's#<script src="config\.js"></script>#<script src="runtime-config.js"></script>\n    <script src="config.js"></script>#' public/index.html
+          grep -q 'runtime-config.js' public/index.html || (echo "::error::runtime-config.js was not inserted"; exit 1)
+
+      - name: Compute SRI hashes for CDN scripts
+        run: node scripts/compute-sri.mjs
+
+      - name: Bump service-worker CACHE_VERSION
+        run: node scripts/bump-sw-version.mjs
+
+      - name: Final placeholder check
+        run: |
+          if grep -q 'REPLACE_WITH_' public/config.js public/index.html public/runtime-config.js; then
+            echo "::error::Placeholders still present after build."
+            grep -n 'REPLACE_WITH_' public/config.js public/index.html public/runtime-config.js || true
             exit 1
           fi
-          if grep -q 'var defaultSupabaseUrl = "";' public/config.js || grep -q 'var defaultSupabaseAnonKey = "";' public/config.js; then
-            echo "Error: One or more injected secrets are empty."
+          if grep -q 'PLACEHOLDER_' public/index.html; then
+            echo "::error::SRI PLACEHOLDER tokens still present after compute-sri."
             exit 1
           fi
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v5
 
-      - name: Upload Artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: 'public'
+          path: public
 
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4

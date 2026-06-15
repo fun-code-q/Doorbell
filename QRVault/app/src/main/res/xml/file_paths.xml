@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Paths shared via the FileProvider when the owner taps "Share QR" or
+  "Export PDF". Limited to the app's cache directory so we never expose
+  the encrypted DB / Keystore-wrapped storage.
+-->
+<paths>
+    <cache-path name="qr_shares" path="qr-shares/" />
+    <cache-path name="qr_pdfs"   path="qr-pdfs/" />
+</paths>

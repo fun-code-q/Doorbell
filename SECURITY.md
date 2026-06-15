@@ -11,7 +11,9 @@
 
 Please do not open public issues for security vulnerabilities.
 
-1. Email: `security@your-domain.example` (replace with your real contact)
+1. Use GitHub's **Private vulnerability reporting** on this repository
+   (Security tab → "Report a vulnerability") — or email the maintainer
+   listed in `CODEOWNERS`
 2. Subject line: `QR Doorbell Security Report`
 3. Include:
    - affected URL/environment

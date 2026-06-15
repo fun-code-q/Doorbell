@@ -1,0 +1,124 @@
+name: QRVault Android
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "QRVault/**"
+      - ".github/workflows/qrvault-android.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "QRVault/**"
+      - ".github/workflows/qrvault-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qrvault-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint + tests + debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: QRVault
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Read+write cache only on main; PRs get read-only to avoid poisoning.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Provision local.properties
+        # CI runners don't have an Android SDK path baked in; AGP auto-resolves
+        # via ANDROID_HOME. The Supabase + guest URL come from repo secrets so
+        # release-flavour BuildConfig values are real even in CI debug builds.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GUEST_BASE_URL: ${{ secrets.GUEST_BASE_URL }}
+        run: |
+          cat > local.properties <<EOF
+          sdk.dir=$ANDROID_HOME
+          SUPABASE_URL=${SUPABASE_URL:-https://example.invalid}
+          SUPABASE_KEY=${SUPABASE_KEY:-anon-key-placeholder}
+          GUEST_BASE_URL=${GUEST_BASE_URL:-https://example.invalid/}
+          EOF
+
+      - name: Provision google-services.json
+        # The Gradle plugin `com.google.gms.google-services` requires this
+        # file to be present at app/google-services.json. We base64-encode it
+        # into the GOOGLE_SERVICES_JSON_B64 secret (see USER_ACTIONS.md).
+        # CI uses a placeholder if the secret is missing so PR builds don't
+        # break for forks, but the app will not connect to FCM.
+        env:
+          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -n "$GS_B64" ]; then
+            echo "$GS_B64" | base64 -d > app/google-services.json
+            echo "google-services.json restored from secret ($(wc -c < app/google-services.json) bytes)"
+          else
+            cat > app/google-services.json <<'EOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "qrvault-ci-placeholder",
+              "storage_bucket": "qrvault-ci-placeholder.appspot.com"
+            },
+            "client": [{
+              "client_info": {
+                "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                "android_client_info": { "package_name": "com.hamburgbuzz.qrvault" }
+              },
+              "oauth_client": [],
+              "api_key": [{ "current_key": "AIzaSyCI_PLACEHOLDER_DO_NOT_USE" }],
+              "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+            }],
+            "configuration_version": "1"
+          }
+          EOF
+            echo "::warning::GOOGLE_SERVICES_JSON_B64 not set — using placeholder; FCM will not work in this build."
+          fi
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug --no-daemon
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Upload debug APK artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qrvault-debug-apk
+          path: QRVault/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qrvault-lint-report
+          path: |
+            QRVault/app/build/reports/lint-results-*.html
+            QRVault/app/build/reports/lint-results-*.xml
+          if-no-files-found: ignore
+          retention-days: 14

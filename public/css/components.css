@@ -667,3 +667,18 @@
 .ring-card {
   position: relative;
 }
+
+/* ============================================================
+   QR Doorbell — utility classes added for the v3 guest rewrite.
+   These replace inline styles that the new CSP forbids.
+   ============================================================ */
+.is-hidden {
+    display: none !important;
+}
+
+.location-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-right: auto;
+    margin-left: 0.75rem;
+}

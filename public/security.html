@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; base-uri 'self'; form-action 'self';">
+    <meta name="theme-color" content="#f59e0b">
+    <title>QR Doorbell — Security Model</title>
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        body { padding: 2rem; max-width: 760px; margin: auto; line-height: 1.6; }
+        h1 { color: var(--accent, #f59e0b); }
+        h2 { margin-top: 2rem; }
+        code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
+        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+        th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+        th { color: var(--accent, #f59e0b); }
+        ul { padding-left: 1.5rem; }
+    </style>
+</head>
+<body>
+    <h1>Security Model</h1>
+    <p>
+        QR Doorbell is built around the assumption that the server is honest-but-curious. The
+        backend never reads guest message contents. This page documents what we protect, what we
+        don't, and how.
+    </p>
+
+    <h2>End-to-end encryption</h2>
+    <p>
+        Each owner device generates a Curve25519 keypair on first launch. The public key is uploaded
+        to <code>owner_public_keys</code> in Supabase; the private key never leaves
+        <code>EncryptedSharedPreferences</code> (Android Keystore-wrapped). Guest messages are
+        sealed with libsodium <code>crypto_box_seal</code> against every active owner public key
+        for the house. The server stores ciphertext only.
+    </p>
+
+    <table>
+        <tr><th>Layer</th><th>Algorithm</th><th>Key</th></tr>
+        <tr><td>Message seal</td><td>X25519 + XSalsa20-Poly1305 (libsodium sealed-box)</td><td>Owner public key per device</td></tr>
+        <tr><td>Backup wrap</td><td>Argon2id (MODERATE) + XSalsa20-Poly1305 (libsodium secretbox)</td><td>Passphrase-derived</td></tr>
+        <tr><td>Local storage</td><td>AES-GCM (EncryptedSharedPreferences)</td><td>Android Keystore master key</td></tr>
+    </table>
+
+    <h2>Server-side trust boundaries</h2>
+    <ul>
+        <li><strong>RLS-locked</strong> tables — <code>anon</code> can only call four whitelisted RPCs.</li>
+        <li><strong>Edge Function HMAC</strong> — <code>push-ring-notification</code> verifies a Bearer token + HMAC-SHA256 of (timestamp ‖ body) plus a 5-min freshness window.</li>
+        <li><strong>Per-token rate limit</strong> — 3 rings / 60 s, plus a per-door global cap (default 12 / hour).</li>
+        <li><strong>Per-door geofence</strong> — haversine check; out-of-range rings are rejected.</li>
+        <li><strong>Cloudflare Turnstile</strong> — invisible captcha for first-time visitors.</li>
+        <li><strong>Audit log redaction</strong> — guest_message, ip_hash, lat/lon, public_key are masked as <code>[redacted]</code> in <code>audit_log.details</code>.</li>
+    </ul>
+
+    <h2>What we do NOT defend against</h2>
+    <ul>
+        <li><strong>Compromised owner device</strong> — anyone who unlocks your phone can read messages and respond as you. Enable biometric unlock and the screen-lock PIN.</li>
+        <li><strong>Physical access to the QR sticker</strong> — anyone within the geofence can ring. Rotate the QR token if a sticker leaks.</li>
+        <li><strong>GPS spoofing</strong> by a determined attacker — Mock-location services + developer-mode override defeat geolocation everywhere. Geofence raises the bar; it does not eliminate the risk.</li>
+        <li><strong>Side-channel attacks</strong> on libsodium / Android Keystore — out of scope.</li>
+    </ul>
+
+    <h2>Reporting a vulnerability</h2>
+    <p>
+        Use GitHub's <em>Private vulnerability reporting</em> tab on the repository. The maintainer
+        named in <code>CODEOWNERS</code> is the security contact.
+    </p>
+
+    <h2>Operational security commitments</h2>
+    <ul>
+        <li>The Firebase Admin SDK service-account key never lives outside Supabase Edge Function secrets.</li>
+        <li>The production Android signing key is held outside developer machines (CI secrets / hardware token).</li>
+        <li>GitHub Actions are SHA-pinned via Dependabot. Branch protection requires CODEOWNERS approval + signed commits.</li>
+        <li>Production database migrations land via the <code>db-migrations.yml</code> workflow only after PR review + staging deploy.</li>
+        <li><a href="dpa.html">Data Processing Addendum</a> available for B2B customers (property managers).</li>
+    </ul>
+
+    <p style="margin-top: 3rem;"><a href="index.html">← Back to QR Doorbell</a></p>
+</body>
+</html>

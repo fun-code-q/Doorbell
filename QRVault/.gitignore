@@ -1,0 +1,49 @@
+# ============================================================
+# QRVault Android — .gitignore (hardened May 2026)
+# Root repo .gitignore also covers secrets; this file is for
+# Android Studio / Gradle clutter and module-specific paths.
+# ============================================================
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+# Gradle / Kotlin caches
+.gradle/
+.kotlin/
+.agent/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated config
+local.properties
+**/local.properties
+
+# Signing material — never check in
+*.jks
+*.keystore
+key.properties
+keystore.properties
+
+# Google Firebase
+google-services.json
+*-firebase-adminsdk-*.json
+*service-account*.json
+*service_account*.json
+
+# Screenshots / input fixtures (project-specific)
+Screenshots/
+input_images/

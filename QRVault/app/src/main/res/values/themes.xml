@@ -1,0 +1,23 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Base theme. Compose owns the colors at runtime; this is the
+         minimum the platform needs for the splash window + activity chrome. -->
+    <style name="Theme.QRVault" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="s">@android:color/black</item>
+    </style>
+
+    <!-- Splash variant used by MainActivity's launcher intent-filter so the
+         first frame is dark, matching the Compose scaffold. -->
+    <style name="Theme.QRVault.Splash" parent="Theme.QRVault" />
+
+    <!-- Theme for IncomingRingActivity. Fullscreen-overlay friendly. -->
+    <style name="Theme.QRVault.Ring" parent="Theme.QRVault">
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+
+</resources>

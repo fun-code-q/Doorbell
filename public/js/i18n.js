@@ -173,7 +173,21 @@ const I18n = {
       add_house_prompt: "New house name",
       house_added: "House added",
       new_ring_fallback: "New Ring",
-      someone_at_door: "Someone is at the door"
+      someone_at_door: "Someone is at the door",
+
+      // Server-error mapping (Postgres ERRCODE -> user-friendly text).
+      // Keyed by P0001..P0008 as raised by create_doorbell_ring_by_token.
+      err_invalid_qr:       "This QR is no longer active.",
+      err_rate_limit:       "You're sending too many rings — slow down.",
+      err_location_needed:  "Please allow location access to ring this door.",
+      err_outside_area:     "You're outside this door's allowed area.",
+      err_message_too_long: "Your message is too long.",
+      err_door_dnd:         "The occupant is unavailable right now.",
+      err_global_cap:       "Doorbell paused — too many rings recently.",
+      err_auto_dnd:         "Doorbell auto-paused — try again later.",
+      err_captcha:          "Spam protection blocked the request.",
+      err_offline:          "You're offline.",
+      err_generic:          "Transmission failed."
     },
     de: {
       app_name: "QR Türklingel",
@@ -337,7 +351,19 @@ const I18n = {
       add_house_prompt: "Neuer Hausname",
       house_added: "Haus hinzugefügt",
       new_ring_fallback: "Neues Klingeln",
-      someone_at_door: "Jemand ist an der Tür"
+      someone_at_door: "Jemand ist an der Tür",
+
+      err_invalid_qr:       "Dieser QR-Code ist nicht mehr aktiv.",
+      err_rate_limit:       "Zu viele Klingelversuche — bitte langsamer.",
+      err_location_needed:  "Bitte erlaube den Standortzugriff, um zu klingeln.",
+      err_outside_area:     "Du befindest dich außerhalb des erlaubten Bereichs.",
+      err_message_too_long: "Deine Nachricht ist zu lang.",
+      err_door_dnd:         "Der Bewohner ist gerade nicht verfügbar.",
+      err_global_cap:       "Türklingel pausiert — zu viele Klingelversuche.",
+      err_auto_dnd:         "Türklingel automatisch pausiert — bitte später erneut versuchen.",
+      err_captcha:          "Spam-Schutz hat die Anfrage blockiert.",
+      err_offline:          "Du bist offline.",
+      err_generic:          "Übertragung fehlgeschlagen."
     }
   },
 

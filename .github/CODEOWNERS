@@ -1,3 +1,23 @@
-# Add code owners when collaborators are ready.
-# Example:
-# * @your-github-username
+# Code owners — every PR needs a review from someone listed here for the
+# matching path. Without an owner, GitHub will not require any review and
+# branch protection is effectively toothless. Replace with real GitHub
+# handles as collaborators join.
+
+# Default: any path not matched below requires the project owner.
+*                          @akhilsajik97
+
+# Workflow + security configs must always be reviewed by the project owner.
+/.github/                  @akhilsajik97
+/.github/workflows/        @akhilsajik97
+/SECURITY.md               @akhilsajik97
+/USER_ACTIONS.md           @akhilsajik97
+/.gitignore                @akhilsajik97
+
+# Backend
+/supabase/                 @akhilsajik97
+
+# Native Android owner app
+/QRVault/                  @akhilsajik97
+
+# Guest PWA
+/public/                   @akhilsajik97

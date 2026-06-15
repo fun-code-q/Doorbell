@@ -1,194 +1,163 @@
-const CACHE_VERSION = "v3.2.8";
-const CACHE_NAME = `qr-doorbell-${CACHE_VERSION}`;
-const CACHE_PREFIX = "qr-doorbell-";
-const OFFLINE_URL = "offline.html";
+// QR Doorbell — Service Worker (v3 guest-only)
+//
+// Design notes:
+//   * CACHE_VERSION is rewritten by `scripts/bump-sw-version.mjs` to a content
+//     hash of the public/ tree on each `npm run build`. No more "I forgot to
+//     bump v3.2.8".
+//   * APP_SHELL contains ONLY guest assets. The owner web SPA has been
+//     archived; pre-caching it on the guest URL would have leaked admin UI
+//     to shared-device visitors.
+//   * `self.skipWaiting()` is NOT called on install. The page receives a
+//     `controllerchange` event and shows an "Update available — Reload" toast;
+//     the user controls when to swap. This avoids torn states (old tab loaded
+//     old JS, new SW serves new HTML, hashed assets 404).
+//   * `config.js` is served network-first so a deploy that changes the
+//     Supabase URL is picked up immediately instead of being locked in a stale
+//     cache for everyone.
+
+const CACHE_VERSION = "v3.0.0";
+const CACHE_NAME    = `qr-doorbell-${CACHE_VERSION}`;
+const CACHE_PREFIX  = "qr-doorbell-";
+const OFFLINE_URL   = "offline.html";
 
 const APP_SHELL = [
-  "./",
-  "index.html",
-  "owner.html",
-  OFFLINE_URL,
-  "manifest.json",
-  "css/main.css",
-  "css/components.css",
-  "js/utils.js",
-  "js/i18n.js",
-  "js/guest.js",
-  "js/auth.js",
-  "js/app.js",
-  "js/owner-bootstrap.js",
-  "icons/icon-192x192.png",
-  "icons/icon-512x512.png",
-  "icons/icon-maskable-192x192.png",
-  "icons/icon-maskable-512x512.png",
-  "favicon.ico"
+    "./",
+    "index.html",
+    OFFLINE_URL,
+    "manifest.json",
+    "css/main.css",
+    "css/components.css",
+    "js/utils.js",
+    "js/i18n.js",
+    "js/crypto.js",
+    "js/guest.js",
+    "icons/icon-192x192.png",
+    "icons/icon-512x512.png",
+    "icons/icon-maskable-192x192.png",
+    "icons/icon-maskable-512x512.png",
+    "favicon.ico",
+    "favicon.svg",
 ];
 
-const CDN_PREFIXES = [
-  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
-  "https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js",
-  "https://fonts.googleapis.com/",
-  "https://fonts.gstatic.com/"
+// Allow CDN assets to be cached if hit at runtime, but never as part of the
+// install step (offline-first must not require network on first run).
+const CDN_RUNTIME_PREFIXES = [
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@",
+    "https://cdn.jsdelivr.net/gh/jedisct1/libsodium.js@",
+    "https://fonts.googleapis.com/",
+    "https://fonts.gstatic.com/",
 ];
-
-function isCDNAsset(url) {
-  return CDN_PREFIXES.some((prefix) => url.startsWith(prefix));
-}
-
-function isCacheableStaticAsset(request) {
-  return request.destination === "style" ||
-    request.destination === "script" ||
-    request.destination === "image" ||
-    request.destination === "font" ||
-    request.url.endsWith(".json");
-}
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .catch(() => {})
-  );
-  self.skipWaiting();
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) =>
+            cache.addAll(APP_SHELL).catch((err) => {
+                console.warn("[sw] precache partial failure", err);
+            })
+        )
+    );
 });
 
 self.addEventListener("activate", (event) => {
-   event.waitUntil(
-     caches
-       .keys()
-       .then((keys) => {
-         // Keep only the current versioned cache.
-         return Promise.all(
-           keys
-             .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME)
-             .map((k) => caches.delete(k))
-         );
-       })
-   );
-   self.clients.claim();
- });
-
-self.addEventListener("fetch", (event) => {
-   const request = event.request;
-   if (request.method !== "GET") return;
-
-   const url = new URL(request.url);
-
-   // Enforce HTTPS for production
-   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-     if (request.protocol === 'http:') {
-       const httpsUrl = request.url.replace(/^http:/, 'https:');
-       event.respondWith(fetch(httpsUrl, { redirect: 'manual' }));
-       return;
-     }
-   }
-
-   /* Only intercept selected third-party CDN assets */
-   if (url.origin !== self.location.origin) {
-     if (isCDNAsset(request.url)) {
-       event.respondWith(networkFirst(request));
-     }
-     return;
-   }
-
-  // config.js contains deployment-injected runtime values; always fetch fresh
-  if (url.pathname.endsWith("/config.js") || url.pathname === "config.js") {
-    event.respondWith(
-      fetch(request, { cache: "no-store" }).catch(() => caches.match(request))
+    event.waitUntil(
+        (async () => {
+            const keys = await caches.keys();
+            await Promise.all(
+                keys
+                    .filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME)
+                    .map((k) => caches.delete(k))
+            );
+            await self.clients.claim();
+        })()
     );
-    return;
-  }
-
-  /* App navigation: prefer fresh network, fallback to cached page/offline shell */
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(async () => (await caches.match(request)) || caches.match(OFFLINE_URL))
-    );
-    return;
-  }
-
-  /* Static local assets: stale-while-revalidate */
-  if (isCacheableStaticAsset(request)) {
-    event.respondWith(staleWhileRevalidate(request));
-    return;
-  }
-
-  /* Default: network first with cache fallback */
-  event.respondWith(networkFirst(request));
 });
 
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-
-  const networkPromise = fetch(request)
-    .then((response) => {
-      if (response && response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => null);
-
-  return cached || networkPromise || new Response("Offline", { status: 503, statusText: "Service Unavailable" });
+function isApiRequest(url) {
+    return (
+        url.hostname.endsWith(".supabase.co") ||
+        url.hostname.endsWith(".functions.supabase.co") ||
+        url.hostname === "challenges.cloudflare.com"
+    );
 }
 
-async function networkFirst(request) {
-   try {
-     const response = await fetch(request);
-     if (response && response.ok) {
-       const cache = await caches.open(CACHE_NAME);
-       cache.put(request, response.clone());
-     }
-     return response;
-   } catch (error) {
-     console.warn('Network request failed:', error);
-     const cached = await caches.match(request);
-     if (cached) return cached;
-     if (request.mode === "navigate") {
-       return caches.match(OFFLINE_URL);
-     }
-     return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
-   }
- }
+function isCdnAsset(url) {
+    return CDN_RUNTIME_PREFIXES.some((p) => url.href.startsWith(p));
+}
+
+self.addEventListener("fetch", (event) => {
+    const req = event.request;
+    if (req.method !== "GET") return;
+
+    const url = new URL(req.url);
+
+    // Network-first for live data + Turnstile + config.
+    if (isApiRequest(url) || url.pathname.endsWith("/config.js")) {
+        event.respondWith(
+            fetch(req).catch(() => caches.match(req))
+        );
+        return;
+    }
+
+    // Navigations: network first, fall back to cached index, then offline page.
+    if (req.mode === "navigate") {
+        event.respondWith(
+            (async () => {
+                try {
+                    const fresh = await fetch(req);
+                    return fresh;
+                } catch (_) {
+                    const cached = await caches.match("index.html");
+                    return cached || (await caches.match(OFFLINE_URL));
+                }
+            })()
+        );
+        return;
+    }
+
+    // CDN assets: stale-while-revalidate.
+    if (isCdnAsset(url)) {
+        event.respondWith(
+            (async () => {
+                const cache = await caches.open(CACHE_NAME);
+                const cached = await cache.match(req);
+                const networkPromise = fetch(req)
+                    .then((res) => {
+                        if (res && res.ok) cache.put(req, res.clone());
+                        return res;
+                    })
+                    .catch(() => null);
+                return cached || (await networkPromise) || new Response("", { status: 504 });
+            })()
+        );
+        return;
+    }
+
+    // Same-origin: cache-first with background refresh.
+    event.respondWith(
+        (async () => {
+            const cached = await caches.match(req);
+            if (cached) {
+                fetch(req).then((res) => {
+                    if (res && res.ok && res.type === "basic") {
+                        caches.open(CACHE_NAME).then((c) => c.put(req, res.clone()));
+                    }
+                }).catch(() => {});
+                return cached;
+            }
+            try {
+                const res = await fetch(req);
+                if (res.ok && res.type === "basic") {
+                    const cache = await caches.open(CACHE_NAME);
+                    cache.put(req, res.clone());
+                }
+                return res;
+            } catch (_) {
+                return (await caches.match(OFFLINE_URL)) || new Response("", { status: 504 });
+            }
+        })()
+    );
+});
 
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
-
-self.addEventListener("push", (event) => {
-  let data = {};
-  try {
-    data = event.data ? event.data.json() : {};
-  } catch (e) {}
-
-  const title = data.title || "QR Doorbell";
-  const options = {
-    body: data.body || "New visitor at your door",
-    icon: "icons/icon-192x192.png",
-    badge: "icons/icon-maskable-192x192.png",
-    tag: data.tag || "doorbell-ring",
-    renotify: true,
-    actions: [
-      { action: "view", title: "View" },
-      { action: "dismiss", title: "Dismiss" }
-    ],
-    data: { url: data.url || "owner.html" }
-  };
-
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  if (event.action === "view" || !event.action) {
-    event.waitUntil(clients.openWindow(event.notification.data.url || "owner.html"));
-  }
+    if (event.data === "SKIP_WAITING") self.skipWaiting();
 });

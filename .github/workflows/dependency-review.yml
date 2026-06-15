@@ -2,7 +2,7 @@ name: Dependency Review
 
 on:
   pull_request:
-    branches: ["main", "master"]
+    branches: ["main"]
 
 permissions:
   contents: read
@@ -10,15 +10,17 @@ permissions:
 jobs:
   dependency-review:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+          # Block adding GPL-3.0 / AGPL-3.0 to a MIT-licensed product.
+          deny-licenses: GPL-3.0, AGPL-3.0
+          comment-summary-in-pr: on-failure

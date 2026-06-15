@@ -1,0 +1,111 @@
+<resources>
+    <string name="app_name">QR Vault</string>
+
+    <!-- Power User Wizard -->
+    <string name="wizard_title">Power User Setup</string>
+    <string name="wizard_subtitle">Zuverlässigkeit ist der Schlüssel für Ihre intelligente Türklingel.</string>
+    <string name="battery_title">Energiesparmodus umgehen</string>
+    <string name="battery_desc">Um sicherzustellen, dass Sie kein Klingeln verpassen, muss QR Vault im Hintergrund aktiv bleiben. Die Akku-Optimierung von Android kann diese kritischen Alarme manchmal verzögern oder blockieren.</string>
+    <string name="battery_button">Berechtigung erteilen</string>
+    <string name="overlay_title">Bildschirm-Overlay</string>
+    <string name="overlay_desc">Erforderlich, um die Vollbild-Klingeloberfläche sofort anzuzeigen, wenn jemand Ihren QR-Code scannt, selbst wenn Ihr Telefon gesperrt ist oder Sie eine andere App verwenden.</string>
+    <string name="overlay_button">Overlay aktivieren</string>
+    <string name="complete_title">Alles bereit!</string>
+    <string name="complete_desc">Ihr Gerät ist nun vollständig für QR Vault optimiert. Sie erhalten sofortige, zuverlässige Alarme, wenn ein Besucher an Ihrer Tür klingelt.</string>
+    <string name="complete_button">QR Vault starten</string>
+    <string name="why_needed">Warum ist das nötig?</string>
+    <string name="content_desc_wizard_icon">Assistenten-Schritt-Symbol</string>
+    <string name="content_desc_next">Weiter</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">QR Vault</string>
+    <string name="status_monitoring">Türklingel wird überwacht&#8230;</string>
+    <string name="last_ring">Letztes Klingeln: %1$s</string>
+    <string name="no_rings">Keine letzten Besucher</string>
+    <string name="settings_title">Einstellungen</string>
+    <string name="simulate_ring">Klingeln simulieren (Debug)</string>
+    <string name="stat_missed">Verpasst</string>
+    <string name="stat_answered">Beantwortet</string>
+    <string name="stat_total_doors">Türen gesamt</string>
+    <string name="stat_paused">Pausiert</string>
+    <string name="activity_log">AKTIVITÄTSPROTOKOLL</string>
+    <string name="mark_all_read">Alle als gelesen markieren</string>
+    <string name="search_placeholder">Besucher oder Orte suchen&#8230;</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_waiting">Wartend</string>
+    <string name="filter_responded">Beantwortet</string>
+    <string name="no_matching_visitors">Keine passenden Besucher</string>
+
+    <!-- Doors Screen -->
+    <string name="doors_title">Türpunkte</string>
+    <string name="no_doors">Noch keine Türpunkte</string>
+    <string name="create_first_door">Erstellen Sie Ihre erste Tür</string>
+    <string name="add_door">Tür hinzufügen</string>
+    <string name="edit_door">Tür bearbeiten</string>
+    <string name="delete_door">Tür löschen</string>
+    <string name="door_name">Türbezeichnung</string>
+    <string name="door_description">Beschreibung (Optional)</string>
+    <string name="save">Speichern</string>
+    <string name="cancel">Abbrechen</string>
+
+    <!-- Audit Screen -->
+    <string name="audit_title">Überwachungsprotokoll</string>
+    <string name="no_audit">Noch keine Protokolleinträge</string>
+    <string name="clear_all">Alle löschen</string>
+
+    <!-- Settings Screen -->
+    <string name="notifications_group">Benachrichtigungen</string>
+    <string name="sound_alerts">Akustische Alarme</string>
+    <string name="vibration">Vibration</string>
+    <string name="push_notifications">Push-Benachrichtigungen</string>
+    <string name="property_management">Hausverwaltung</string>
+    <string name="system_configuration">Systemkonfiguration</string>
+    <string name="system_config_desc">Stellen Sie sicher, dass diese für sofortiges Klingeln aktiviert sind:</string>
+    <string name="overlay_perm">1. Über anderen Apps anzeigen</string>
+    <string name="battery_perm">2. Energiesparmodus umgehen</string>
+    <string name="notif_perm">3. Benachrichtigungseinstellungen</string>
+    <string name="configure">KONFIGURIEREN</string>
+    <string name="unrestrict">FREIGEBEN</string>
+    <string name="view">ANSEHEN</string>
+    <string name="language">Sprache</string>
+    <string name="english">Englisch</string>
+    <string name="german">Deutsch</string>
+    <string name="sign_out">Abmelden</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_doors">Türen</string>
+    <string name="nav_audit">Protokoll</string>
+    <string name="nav_settings">Optionen</string>
+
+    <!-- General -->
+    <string name="back">Zurück</string>
+
+    <!-- Incoming Ring Screen -->
+    <string name="visitor_at_door">Besucher an der Tür!</string>
+    <string name="front_door_now">Haustür • Jetzt</string>
+    <string name="incoming_ring_desc">Jemand scannt gerade Ihren QR-Code.</string>
+    <string name="accept_ring">Annehmen</string>
+    <string name="decline_ring">Ablehnen</string>
+    <string name="content_desc_bell_icon">Klingel-Symbol</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_name">Türklingel-Signale</string>
+    <string name="notif_channel_desc">Hochdringliche Alarme für Besucher-Klingeln.</string>
+    <string name="notif_channel_active_name">Aktives Klingeln</string>
+    <string name="notif_channel_active_desc">Daueranzeige während ein Türklingelsignal aktiv ist.</string>
+    <string name="notif_title">Besucher-Alarm!</string>
+    <string name="notif_text">Jemand klingelt an Ihrer Tür.</string>
+
+    <!-- About / privacy / account -->
+    <string name="about_title">Über</string>
+    <string name="about_privacy_policy">Datenschutzerklärung</string>
+    <string name="about_terms">Nutzungsbedingungen</string>
+    <string name="about_oss_licenses">Open-Source-Lizenzen</string>
+    <string name="about_security">Sicherheitsmodell</string>
+    <string name="about_export_settings">Einstellungen exportieren</string>
+    <string name="about_import_settings">Einstellungen importieren</string>
+    <string name="about_change_email">E-Mail ändern</string>
+    <string name="about_change_email_help">Wir senden einen Bestätigungslink an die neue Adresse. Bis Sie ihn antippen, ist die Änderung nicht aktiv.</string>
+    <string name="about_delete_account">Konto löschen</string>
+</resources>

@@ -1,0 +1,164 @@
+<resources>
+    <string name="app_name">QR Vault</string>
+
+    <!-- Power User Wizard -->
+    <string name="wizard_title">Power User Setup</string>
+    <string name="wizard_subtitle">Reliability is key for your smart doorbell.</string>
+    <string name="battery_title">Bypass Battery Saver</string>
+    <string name="battery_desc">To ensure you never miss a ring, QR Vault needs to stay active in the background. Android\'s battery optimization can sometimes delay or block these critical alerts.</string>
+    <string name="battery_button">Grant Permission</string>
+    <string name="overlay_title">Screen Overlay</string>
+    <string name="overlay_desc">Required to show the full-screen ring interface immediately when someone scans your QR code, even if your phone is locked or you\'re using another app.</string>
+    <string name="overlay_button">Enable Overlay</string>
+    <string name="oem_autostart_title">Vendor auto-start</string>
+    <string name="oem_autostart_desc">Your phone\'s vendor (Xiaomi, Oppo, Vivo, OnePlus, Huawei, Samsung) blocks doorbell pushes after you swipe the app out of recents. Tap Open to allow auto-start, then come back here.</string>
+    <string name="oem_autostart_button">Open Auto-Start Settings</string>
+    <string name="complete_title">All Set!</string>
+    <string name="complete_desc">Your device is now fully optimized for QR Vault. You\'ll receive instant, reliable alerts whenever a visitor rings your doorbell.</string>
+    <string name="complete_button">Start Using QR Vault</string>
+    <string name="why_needed">Why is this needed?</string>
+    <string name="content_desc_wizard_icon">Wizard Step Icon</string>
+    <string name="content_desc_next">Next</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">QR Vault</string>
+    <string name="status_monitoring">Monitoring Doorbell&#8230;</string>
+    <string name="last_ring">Last ring: %1$s</string>
+    <string name="no_rings">No recent visitors</string>
+    <string name="settings_title">Settings</string>
+    <string name="simulate_ring">Simulate Ring (Debug)</string>
+    <string name="stat_missed">Missed</string>
+    <string name="stat_answered">Answered</string>
+    <string name="stat_total_doors">Total Doors</string>
+    <string name="stat_paused">Paused</string>
+    <string name="activity_log">ACTIVITY LOG</string>
+    <string name="mark_all_read">Mark all read</string>
+    <string name="search_placeholder">Search visitors or locations...</string>
+    <string name="filter_all">All</string>
+    <string name="filter_waiting">Waiting</string>
+    <string name="filter_responded">Responded</string>
+    <string name="no_matching_visitors">No matching visitors</string>
+
+    <!-- Doors Screen -->
+    <string name="doors_title">Door Points</string>
+    <string name="no_doors">No door points yet</string>
+    <string name="create_first_door">Create your first door</string>
+    <string name="add_door">Add Door</string>
+    <string name="edit_door">Edit Door</string>
+    <string name="delete_door">Delete Door</string>
+    <string name="door_name">Door Name</string>
+    <string name="door_description">Description (Optional)</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Audit Screen -->
+    <string name="audit_title">Audit Log</string>
+    <string name="no_audit">No audit entries yet</string>
+    <string name="clear_all">Clear All</string>
+
+    <!-- Settings Screen -->
+    <string name="notifications_group">Notifications</string>
+    <string name="sound_alerts">Sound Alerts</string>
+    <string name="vibration">Vibration</string>
+    <string name="push_notifications">Push Notifications</string>
+    <string name="property_management">Property Management</string>
+    <string name="system_configuration">System Configuration</string>
+    <string name="system_config_desc">Ensure these are enabled for instant rings:</string>
+    <string name="overlay_perm">1. Display Over Other Apps</string>
+    <string name="battery_perm">2. Bypass Battery Saver</string>
+    <string name="notif_perm">3. Notification Settings</string>
+    <string name="configure">CONFIGURE</string>
+    <string name="unrestrict">UNRESTRICT</string>
+    <string name="view">VIEW</string>
+    <string name="language">Language</string>
+    <string name="english">English</string>
+    <string name="german">German</string>
+    <string name="sign_out">Sign Out</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_doors">Doors</string>
+    <string name="nav_audit">Audit</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- General -->
+    <string name="back">Back</string>
+
+    <!-- Incoming Ring Screen -->
+    <string name="visitor_at_door">Visitor at the Door!</string>
+    <string name="front_door_now">Front Door • Now</string>
+    <string name="incoming_ring_desc">Someone is scanning your QR code right now.</string>
+    <string name="accept_ring">Accept</string>
+    <string name="decline_ring">Decline</string>
+    <string name="content_desc_bell_icon">Ringing Bell Icon</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_name">Doorbell Rings</string>
+    <string name="notif_channel_desc">High urgency alerts for visitor rings.</string>
+    <string name="notif_channel_active_name">Active Ring</string>
+    <string name="notif_channel_active_desc">Persistent notification while a doorbell ring is in progress.</string>
+    <string name="notif_title">Visitor Alert!</string>
+    <string name="notif_text">Someone is ringing your doorbell.</string>
+
+    <!-- Invitations -->
+    <string name="invitation_notif_title">You\'ve been invited to a house</string>
+    <string name="invitation_notif_text_generic">Tap to review and accept or decline.</string>
+    <string name="invitation_notif_text_named">%1$s wants to share doorbell access with you.</string>
+    <string name="invitations_pending_title">Pending invitations</string>
+    <string name="invitation_accept">Accept</string>
+    <string name="invitation_decline">Decline</string>
+
+    <!-- Devices -->
+    <string name="devices_title">My Devices</string>
+    <string name="devices_empty">No registered devices yet. Sign in on a phone to add one.</string>
+    <string name="device_revoke">Revoke</string>
+    <string name="device_this_device">This device</string>
+
+    <!-- Quick replies (canned responses sent from the ring screen) -->
+    <string name="quick_reply_coming">Coming!</string>
+    <string name="quick_reply_leave_at_door">Leave it at the door, thanks.</string>
+    <string name="quick_reply_side_entrance">Please use the side entrance.</string>
+    <string name="quick_reply_busy_call_back">Busy right now — call back in 10 min.</string>
+    <string name="quick_reply_wrong_person">Wrong address.</string>
+
+    <!-- Reply UX -->
+    <string name="reply_sending">Sending…</string>
+    <string name="reply_offline_queued">Offline — will send when online.</string>
+
+    <!-- Health screen -->
+    <string name="health_title">Reliability Health</string>
+    <string name="health_refresh">Refresh</string>
+    <string name="health_fix">Fix</string>
+
+    <!-- About / privacy -->
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_privacy_policy">Privacy policy</string>
+    <string name="about_terms">Terms of service</string>
+    <string name="about_oss_licenses">Open-source licenses</string>
+    <string name="about_security">Security model</string>
+    <string name="about_export_settings">Export settings</string>
+    <string name="about_import_settings">Import settings</string>
+    <string name="app_lock_title">Unlock QR Vault</string>
+    <string name="app_lock_subtitle">Use fingerprint or your device PIN.</string>
+    <string name="settings_app_lock">Require unlock</string>
+    <string name="settings_app_lock_help">Ask for fingerprint or device PIN before showing the dashboard.</string>
+    <string name="settings_app_lock_unavailable">Set up a fingerprint or screen lock in system settings first.</string>
+    <string name="about_change_email">Change email</string>
+    <string name="about_change_email_help">Supabase will email a confirmation link to the new address. Until you tap it, the change is pending.</string>
+    <string name="about_delete_account">Delete account</string>
+    <string name="about_delete_account_confirm">Permanently delete your account, all rings, all door points, and all keys? This cannot be undone.</string>
+
+    <!-- Encryption backup UI -->
+    <string name="backup_title">Encrypted key backup</string>
+    <string name="backup_subtitle">If you lose this phone, only this passphrase can recover your encrypted message history.</string>
+    <string name="backup_create">Create backup</string>
+    <string name="backup_restore">Restore on this device</string>
+    <string name="backup_passphrase">Passphrase</string>
+    <string name="backup_passphrase_confirm">Confirm passphrase</string>
+    <string name="backup_passphrase_mismatch">Passphrases don\'t match.</string>
+    <string name="backup_passphrase_short">Use at least 12 characters.</string>
+    <string name="backup_created">Backup uploaded.</string>
+    <string name="backup_restored">Backup restored.</string>
+    <string name="backup_wrong_passphrase">Wrong passphrase or corrupted backup.</string>
+</resources>

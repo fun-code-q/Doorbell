@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">QR Vault</string>
+
+    <string name="home_title">QR Vault</string>
+    <string name="status_monitoring">Kapı zili izleniyor…</string>
+    <string name="last_ring">Son zil: %1$s</string>
+    <string name="no_rings">Son ziyaretçi yok</string>
+    <string name="settings_title">Ayarlar</string>
+    <string name="stat_missed">Kaçırılan</string>
+    <string name="stat_answered">Cevaplanan</string>
+    <string name="stat_total_doors">Toplam kapı</string>
+    <string name="stat_paused">Duraklatılmış</string>
+    <string name="filter_all">Tümü</string>
+    <string name="filter_waiting">Bekleyen</string>
+    <string name="filter_responded">Cevaplanan</string>
+
+    <string name="doors_title">Kapı noktaları</string>
+    <string name="no_doors">Henüz kapı noktası yok</string>
+    <string name="add_door">Kapı ekle</string>
+    <string name="edit_door">Düzenle</string>
+    <string name="delete_door">Sil</string>
+    <string name="door_name">Kapı adı</string>
+    <string name="save">Kaydet</string>
+    <string name="cancel">İptal</string>
+
+    <string name="audit_title">Denetim kaydı</string>
+    <string name="no_audit">Henüz kayıt yok</string>
+
+    <string name="sound_alerts">Ses uyarıları</string>
+    <string name="vibration">Titreşim</string>
+    <string name="push_notifications">Anlık bildirimler</string>
+    <string name="language">Dil</string>
+    <string name="sign_out">Çıkış</string>
+
+    <string name="nav_home">Ana sayfa</string>
+    <string name="nav_doors">Kapılar</string>
+    <string name="nav_audit">Kayıt</string>
+    <string name="nav_settings">Ayarlar</string>
+
+    <string name="back">Geri</string>
+
+    <string name="visitor_at_door">Kapıda ziyaretçi var!</string>
+    <string name="accept_ring">Kabul et</string>
+    <string name="decline_ring">Reddet</string>
+
+    <string name="notif_channel_name">Kapı zilleri</string>
+    <string name="notif_channel_desc">Ziyaretçi zilleri için yüksek öncelikli uyarılar.</string>
+    <string name="notif_channel_active_name">Aktif zil</string>
+    <string name="notif_channel_active_desc">Bir zil devam ederken kalıcı bildirim.</string>
+    <string name="notif_title">Ziyaretçi uyarısı!</string>
+    <string name="notif_text">Birisi kapı zilini çalıyor.</string>
+
+    <string name="quick_reply_coming">Geliyorum!</string>
+    <string name="quick_reply_leave_at_door">Kapının önüne bırakın, teşekkürler.</string>
+    <string name="quick_reply_busy_call_back">Meşgulüm — 10 dakika sonra gelin.</string>
+
+    <string name="about_title">Hakkında</string>
+    <string name="about_privacy_policy">Gizlilik politikası</string>
+    <string name="about_terms">Hizmet koşulları</string>
+    <string name="about_oss_licenses">Açık kaynak lisansları</string>
+    <string name="about_security">Güvenlik modeli</string>
+    <string name="about_export_settings">Ayarları dışa aktar</string>
+    <string name="about_import_settings">Ayarları içe aktar</string>
+    <string name="about_change_email">E-postayı değiştir</string>
+    <string name="about_change_email_help">Yeni adrese bir onay bağlantısı göndereceğiz. Bağlantıya dokunana kadar değişiklik geçerli olmaz.</string>
+    <string name="about_delete_account">Hesabı sil</string>
+</resources>

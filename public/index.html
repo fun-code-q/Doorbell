@@ -3,11 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; media-src 'self' https://assets.mixkit.co data: blob:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <!--
+      Content-Security-Policy
+      ------------------------
+      Notes:
+      * NO `'unsafe-inline'` in script-src. Every inline event handler has been
+        removed; future inline scripts must use a nonce or hash.
+      * `'unsafe-inline'` is still allowed for style-src because Google Fonts
+        injects a small style block and the cost/benefit of nonce-ing every
+        stylesheet for a static site is not worth it.
+      * connect-src is locked to your Supabase + Cloudflare (Turnstile + JSDelivr).
+      * frame-src 'self' https://challenges.cloudflare.com so the Turnstile
+        iframe can mount.
+    -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com;
+                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                   font-src 'self' https://fonts.gstatic.com data:;
+                   img-src 'self' data: blob: https:;
+                   connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://challenges.cloudflare.com https://*.functions.supabase.co;
+                   media-src 'self' data: blob:;
+                   manifest-src 'self';
+                   worker-src 'self';
+                   frame-src 'self' https://challenges.cloudflare.com;
+                   object-src 'none';
+                   base-uri 'self';
+                   form-action 'self';
+                   upgrade-insecure-requests;">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <meta name="description" content="Smart QR Doorbell - Contactless visitor check-in system">
+    <meta name="description" content="Smart QR Doorbell — Contactless visitor check-in system">
     <meta name="theme-color" content="#f59e0b">
-    <title>QR Doorbell - Guest</title>
+    <title>QR Doorbell — Guest</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16,7 +43,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@300;400;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
-
 </head>
 <body>
     <div class="mesh-bg"></div>
@@ -33,22 +59,34 @@
             <div class="entry-card">
                 <div class="entry-header">
                     <h1 class="entry-title" data-i18n="guest_title">QR DoorBell</h1>
-                    <div id="location-name" style="font-size:0.85rem;color:var(--text-muted);margin-right:auto;margin-left:0.75rem;">Resolving location...</div>
+                    <div id="location-name" class="location-meta">Resolving location...</div>
                     <button class="info-toggle" id="info-trigger" aria-label="How It Works">i</button>
                 </div>
 
                 <div id="main-interface" class="interface-stack">
-
-
                     <div class="input-panel" id="message-drawer">
-                        <textarea id="message" class="text-area-premium" data-i18n-placeholder="visitor_memo" placeholder="Optional note for occupant" rows="3" maxlength="500"></textarea>
+                        <textarea id="message" class="text-area-premium"
+                                  data-i18n-placeholder="visitor_memo"
+                                  placeholder="Optional note for occupant"
+                                  rows="3" maxlength="500"></textarea>
                         <div class="character-count" id="char-counter">0 / 500</div>
+                        <!-- Optional attachments (Batch H #19 / P #5). Encrypted client-side
+                             to all owner public keys before upload. -->
+                        <label for="attach-input" class="attach-trigger">
+                            <input id="attach-input" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                            <span id="attach-label">Attach photo (optional)</span>
+                        </label>
+                        <button type="button" id="record-voice" class="attach-trigger">
+                            <span id="record-label">🎤 Record voice (optional)</span>
+                        </button>
                     </div>
 
                     <div class="action-center">
                         <div class="signal-wrapper" id="action-bar">
                             <button class="toggle-input" id="message-toggle" aria-label="Attach note">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="msg-svg"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="msg-svg" aria-hidden="true">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
                             </button>
                             <div class="ring-core" id="ring-container">
                                 <div class="ping-wave"></div>
@@ -62,7 +100,7 @@
                             <div class="feedback-content">
                                 <span id="error-text">Token Missing</span>
                             </div>
-                            <button class="btn-retry" data-action="retry-capture">&#8635;</button>
+                            <button class="btn-retry" data-action="retry-capture" aria-label="Retry">&#8635;</button>
                         </div>
 
                         <div id="status-success" class="feedback-state success">
@@ -72,7 +110,7 @@
                         </div>
                     </div>
 
-                    <div id="timestamp-view" class="meta-footer" style="display:none;"></div>
+                    <div id="timestamp-view" class="meta-footer is-hidden"></div>
                 </div>
             </div>
         </main>
@@ -84,22 +122,16 @@
                 <div class="live-pulse"></div>
                 <span data-i18n="reply_inbound">Live Response</span>
             </div>
-            <button id="modal-close-reply" class="btn-close-mini" style="display:none;">&times;</button>
+            <button id="modal-close-reply" class="btn-close-mini is-hidden">&times;</button>
         </div>
-
-        <!-- Threaded Chat History (Now inside the reply panel) -->
         <div id="chat-thread" class="chat-history-container">
-            <div id="chat-messages" class="chat-messages-list">
-                <!-- Messages injected here -->
-            </div>
+            <div id="chat-messages" class="chat-messages-list"></div>
         </div>
-
         <div class="response-footer">
             <div id="reply-timestamp" class="response-time"></div>
             <button id="reply-btn" class="btn-reply-action" data-i18n="btn_reply">Reply</button>
         </div>
     </div>
-
 
     <div id="secure-modal" class="overlay-blur">
         <div class="modal-sheet animate-sheet-in">
@@ -110,10 +142,35 @@
         </div>
     </div>
 
+    <!-- Invisible Turnstile mount point. The widget script renders into here
+         when guest.js asks for a token. -->
+    <div id="turnstile-holder" class="is-hidden"></div>
+
+    <!--
+      External scripts. Versions are pinned and Subresource Integrity (SRI)
+      hashes are required. To rotate a version, update both the URL and the
+      `integrity` attribute together. If you bump without recomputing the
+      hash, the browser will block the load (which is the safe default).
+    -->
     <script src="config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"
+      integrity="sha384-z2hqtpr/vSDZ8zSjLOiNgnR/mpU799AD93s6rvkNJLI6Hl0YlKXEhDtREzNT749S"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"></script>
+    <script
+      src="https://cdn.jsdelivr.net/gh/jedisct1/libsodium.js@0.7.13/dist/browsers-sumo/sodium.js"
+      integrity="sha384-xE+e4s598d4A0BKvbnkYaqRYutiZTg3KzqnWK51WA6h0yoCZ3uuV52KsntFIWScg"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"></script>
+    <script
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+      defer></script>
     <script src="js/utils.js"></script>
     <script src="js/i18n.js"></script>
+    <script src="js/crypto.js"></script>
     <script src="js/guest.js"></script>
 </body>
 </html>

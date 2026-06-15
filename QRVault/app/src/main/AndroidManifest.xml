@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Required for FCM + Supabase Realtime -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Doorbell UX. POST_NOTIFICATIONS is the Android 13+ runtime gate. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- CallStyle full-screen notification surface. Play policy: declare
+         purpose + justification on the listing. See USER_ACTIONS.md step 7. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Telecom integration for true call-style incoming UI on Android 14+. -->
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+
+    <!-- Power-user wizard offers to whitelist us from Doze. The system
+         intent is best-effort; some OEM skins block it entirely. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Wake lock so the ringtone keeps playing while the activity comes up. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Foreground service used while a ring is active (ringing UI + audio).
+         We use FOREGROUND_SERVICE_TYPE_SPECIAL_USE rather than `phoneCall`
+         because we don't integrate with Android Telecom (no ConnectionService).
+         The `<property>` declaration inside the <service> element justifies
+         the use case to Play Console reviewers — they require it. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Optional but declared up-front so the wizard works. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Camera for QR Factory's "scan an existing sticker" flow. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <application
+        android:name=".app.QRVaultApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/app_icon"
+        android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
+        android:roundIcon="@drawable/app_icon"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.QRVault"
+        android:enableOnBackInvokedCallback="true"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- Disable Android Advertising ID; we have no ad surface. -->
+        <meta-data android:name="android.gms.ads.AD_MANAGER_APP" android:value="false" />
+
+        <!-- Disable Google Crash Reporting auto-init; we use the QRVaultApplication path. -->
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="true" />
+        <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
+
+        <!-- Default FCM channel id for the messaging library. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="doorbell_rings" />
+
+        <!-- =================================================================
+             Activities
+             =================================================================  -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.QRVault.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Supabase password-recovery deep link. The recovery email's
+                 redirect URL is `qrvault://auth/reset`; the access token is
+                 appended as a URL fragment by Supabase. singleTask so the
+                 email-link tap re-uses the existing task instead of stacking
+                 a second app instance. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="qrvault" android:host="auth" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.activity.IncomingRingActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.QRVault.Ring" />
+
+        <!-- =================================================================
+             FCM service
+             =================================================================  -->
+        <service
+            android:name=".service.QrFcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- =================================================================
+             Ring foreground service (CallStyle owner). specialUse type
+             because we don't use Telecom/ConnectionService; the property
+             declaration is REQUIRED by Play Console for special-use FGS.
+             =================================================================  -->
+        <service
+            android:name=".service.RingForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="true">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="doorbell_incoming_ring" />
+        </service>
+
+        <!-- =================================================================
+             Broadcast receivers for Answer / Decline notification actions
+             =================================================================  -->
+        <receiver
+            android:name=".notification.RingActionReceiver"
+            android:exported="false" />
+
+        <!-- =================================================================
+             FileProvider for sharing rendered QR PNGs and PDF exports
+             out of the cache directory. Authority is namespaced under
+             our applicationId so it cannot collide on a device.
+             =================================================================  -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- =================================================================
+             Hilt WorkManager initializer
+             =================================================================  -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
+    </application>
+</manifest>

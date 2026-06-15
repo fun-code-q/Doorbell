@@ -1,0 +1,20 @@
+<!--
+  Monochrome launcher icon used by Android 13+ themed icons.
+  Same bell silhouette as the foreground, but with a black fill — the
+  system will recolor it to match the user's wallpaper-derived theme.
+  Padding is identical to the foreground so the icon sits at the same
+  optical centre on the home screen.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="24"
+        android:translateY="24">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M30,5.88c-10.6,0 -19.2,8.6 -19.2,19.2v17.28L6.96,48.24c-1.2,1.2 -0.36,3.24 1.32,3.24h43.44c1.68,0 2.52,-2.04 1.32,-3.24l-3.84,-5.88V25.08c0,-10.6 -8.6,-19.2 -19.2,-19.2zM30,57.72c3.31,0 6,-2.69 6,-6H24c0,3.31 2.69,6 6,6z" />
+    </group>
+</vector>

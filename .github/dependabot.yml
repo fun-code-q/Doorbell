@@ -1,3 +1,12 @@
+# Dependabot covers every code surface:
+#   * npm at repo root (scripts/build tooling)
+#   * gradle inside QRVault/ (the native Android app)
+#   * github-actions (the workflows themselves)
+#
+# All updates are minor + patch only by default. Security advisories upgrade
+# major when needed. SHA pinning is enforced by running a one-time
+# pin-github-action across .github/workflows/ — see USER_ACTIONS.md.
+
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -8,9 +17,34 @@ updates:
       time: "05:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "security"
+    labels: ["dependencies", "security"]
+
+  - package-ecosystem: "gradle"
+    directory: "/QRVault"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:10"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "android"]
+    groups:
+      androidx:
+        patterns: ["androidx.*"]
+      compose:
+        patterns: ["androidx.compose.*"]
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin.*"
+          - "org.jetbrains.kotlinx.*"
+      firebase:
+        patterns: ["com.google.firebase.*"]
+      supabase:
+        patterns: ["io.github.jan-tennert.supabase.*"]
+      hilt:
+        patterns:
+          - "com.google.dagger.*"
+          - "androidx.hilt.*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -20,6 +54,4 @@ updates:
       time: "05:15"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "ci"
+    labels: ["dependencies", "ci"]

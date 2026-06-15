@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">QR Vault</string>
+
+    <string name="home_title">QR Vault</string>
+    <string name="status_monitoring">Surveillance de la sonnette…</string>
+    <string name="last_ring">Dernière sonnerie : %1$s</string>
+    <string name="no_rings">Aucun visiteur récent</string>
+    <string name="settings_title">Paramètres</string>
+    <string name="stat_missed">Manqués</string>
+    <string name="stat_answered">Répondus</string>
+    <string name="stat_total_doors">Portes totales</string>
+    <string name="stat_paused">En pause</string>
+    <string name="filter_all">Tous</string>
+    <string name="filter_waiting">En attente</string>
+    <string name="filter_responded">Répondus</string>
+
+    <string name="doors_title">Points de porte</string>
+    <string name="no_doors">Aucun point de porte</string>
+    <string name="add_door">Ajouter une porte</string>
+    <string name="edit_door">Modifier</string>
+    <string name="delete_door">Supprimer</string>
+    <string name="door_name">Nom de la porte</string>
+    <string name="save">Enregistrer</string>
+    <string name="cancel">Annuler</string>
+
+    <string name="audit_title">Journal d\'audit</string>
+    <string name="no_audit">Aucune entrée pour le moment</string>
+
+    <string name="sound_alerts">Alertes sonores</string>
+    <string name="vibration">Vibration</string>
+    <string name="push_notifications">Notifications push</string>
+    <string name="language">Langue</string>
+    <string name="sign_out">Se déconnecter</string>
+
+    <string name="nav_home">Accueil</string>
+    <string name="nav_doors">Portes</string>
+    <string name="nav_audit">Audit</string>
+    <string name="nav_settings">Paramètres</string>
+
+    <string name="back">Retour</string>
+
+    <string name="visitor_at_door">Visiteur à la porte !</string>
+    <string name="accept_ring">Accepter</string>
+    <string name="decline_ring">Refuser</string>
+
+    <string name="notif_channel_name">Sonneries</string>
+    <string name="notif_channel_desc">Alertes urgentes pour les visites.</string>
+    <string name="notif_channel_active_name">Sonnerie en cours</string>
+    <string name="notif_channel_active_desc">Notification persistante pendant une sonnerie active.</string>
+    <string name="notif_title">Visiteur !</string>
+    <string name="notif_text">Quelqu\'un sonne à votre porte.</string>
+
+    <string name="quick_reply_coming">J\'arrive !</string>
+    <string name="quick_reply_leave_at_door">Laissez-le à la porte, merci.</string>
+    <string name="quick_reply_busy_call_back">Occupé, repassez dans 10 min.</string>
+
+    <string name="about_title">À propos</string>
+    <string name="about_privacy_policy">Politique de confidentialité</string>
+    <string name="about_terms">Conditions d\'utilisation</string>
+    <string name="about_oss_licenses">Licences open source</string>
+    <string name="about_security">Modèle de sécurité</string>
+    <string name="about_export_settings">Exporter les paramètres</string>
+    <string name="about_import_settings">Importer les paramètres</string>
+    <string name="about_change_email">Changer l\'e-mail</string>
+    <string name="about_change_email_help">Nous enverrons un lien de confirmation à la nouvelle adresse. Le changement ne prend effet qu\'après confirmation.</string>
+    <string name="about_delete_account">Supprimer le compte</string>
+</resources>

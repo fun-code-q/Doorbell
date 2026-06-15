@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">QR Vault</string>
+
+    <string name="home_title">QR Vault</string>
+    <string name="status_monitoring">Monitorowanie dzwonka…</string>
+    <string name="last_ring">Ostatni dzwonek: %1$s</string>
+    <string name="no_rings">Brak ostatnich gości</string>
+    <string name="settings_title">Ustawienia</string>
+    <string name="stat_missed">Nieodebrane</string>
+    <string name="stat_answered">Odebrane</string>
+    <string name="stat_total_doors">Wszystkie drzwi</string>
+    <string name="stat_paused">Wstrzymane</string>
+    <string name="filter_all">Wszystkie</string>
+    <string name="filter_waiting">Oczekujące</string>
+    <string name="filter_responded">Odebrane</string>
+
+    <string name="doors_title">Punkty drzwi</string>
+    <string name="no_doors">Brak punktów drzwi</string>
+    <string name="add_door">Dodaj drzwi</string>
+    <string name="edit_door">Edytuj</string>
+    <string name="delete_door">Usuń</string>
+    <string name="door_name">Nazwa drzwi</string>
+    <string name="save">Zapisz</string>
+    <string name="cancel">Anuluj</string>
+
+    <string name="audit_title">Dziennik audytu</string>
+    <string name="no_audit">Brak wpisów</string>
+
+    <string name="sound_alerts">Alerty dźwiękowe</string>
+    <string name="vibration">Wibracja</string>
+    <string name="push_notifications">Powiadomienia push</string>
+    <string name="language">Język</string>
+    <string name="sign_out">Wyloguj</string>
+
+    <string name="nav_home">Główna</string>
+    <string name="nav_doors">Drzwi</string>
+    <string name="nav_audit">Audyt</string>
+    <string name="nav_settings">Ustawienia</string>
+
+    <string name="back">Wstecz</string>
+
+    <string name="visitor_at_door">Gość przy drzwiach!</string>
+    <string name="accept_ring">Akceptuj</string>
+    <string name="decline_ring">Odrzuć</string>
+
+    <string name="notif_channel_name">Dzwonki</string>
+    <string name="notif_channel_desc">Alerty wysokiej wagi dla gości.</string>
+    <string name="notif_channel_active_name">Aktywny dzwonek</string>
+    <string name="notif_channel_active_desc">Trwałe powiadomienie podczas aktywnego dzwonka.</string>
+    <string name="notif_title">Gość!</string>
+    <string name="notif_text">Ktoś dzwoni do drzwi.</string>
+
+    <string name="quick_reply_coming">Już idę!</string>
+    <string name="quick_reply_leave_at_door">Zostaw przy drzwiach, dziękuję.</string>
+    <string name="quick_reply_busy_call_back">Zajęty — wróć za 10 minut.</string>
+
+    <string name="about_title">O aplikacji</string>
+    <string name="about_privacy_policy">Polityka prywatności</string>
+    <string name="about_terms">Warunki korzystania</string>
+    <string name="about_oss_licenses">Licencje open source</string>
+    <string name="about_security">Model bezpieczeństwa</string>
+    <string name="about_export_settings">Eksportuj ustawienia</string>
+    <string name="about_import_settings">Importuj ustawienia</string>
+    <string name="about_change_email">Zmień e-mail</string>
+    <string name="about_change_email_help">Wyślemy link potwierdzający na nowy adres. Zmiana wejdzie w życie po jego kliknięciu.</string>
+    <string name="about_delete_account">Usuń konto</string>
+</resources>

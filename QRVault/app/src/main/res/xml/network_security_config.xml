@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TLS pinning + cleartext deny (Batch O #11).
+
+  We forbid cleartext everywhere. We also pin the Supabase + Firebase
+  edges to their root CAs by hash, defeating rogue-CA MITM attacks
+  on rooted/proxied devices.
+
+  IMPORTANT: the pin-set MUST be rotated before its expiration. Replace
+  the placeholders with real `sha256/…` pins of the chains used by your
+  specific Supabase project + your Firebase region.
+
+  Get current pins by running, against the live domain:
+    openssl s_client -showcerts -servername <host> -connect <host>:443 \
+      | openssl x509 -pubkey -noout \
+      | openssl pkey -pubin -outform der \
+      | openssl dgst -sha256 -binary \
+      | openssl enc -base64
+
+  Pin BOTH the leaf and one intermediate. Add an additional intermediate
+  ("backup pin") so a planned cert rotation never bricks the app.
+-->
+<network-security-config>
+    <!-- Default: HTTPS only, system CAs. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Supabase edge. Replace <project-ref> at build time via manifest placeholder. -->
+    <domain-config>
+        <domain includeSubdomains="true">supabase.co</domain>
+        <domain includeSubdomains="true">supabase.in</domain>
+        <pin-set expiration="2027-05-18">
+            <!-- Replace with real pins; see header comment for how to compute. -->
+            <pin digest="SHA-256">SUPABASE_LEAF_PIN_REPLACE_ME=</pin>
+            <pin digest="SHA-256">SUPABASE_BACKUP_PIN_REPLACE_ME=</pin>
+        </pin-set>
+    </domain-config>
+
+    <!-- Firebase Cloud Messaging. -->
+    <domain-config>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">fcm.googleapis.com</domain>
+        <pin-set expiration="2027-05-18">
+            <pin digest="SHA-256">GOOGLE_GTS_R1_REPLACE_ME=</pin>
+            <pin digest="SHA-256">GOOGLE_GTS_R2_REPLACE_ME=</pin>
+        </pin-set>
+    </domain-config>
+
+    <!-- Debug builds: allow user-installed CAs (Charles, mitmproxy etc.). -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

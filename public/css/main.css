@@ -553,3 +553,28 @@ body {
 .animate-fade-in { animation: fadeIn 1s ease; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ============================================================
+   Accessibility — prefers-reduced-motion (Batch G #23).
+   Disable animations for users who request reduced motion.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    .ping-wave, .live-pulse, .bg-orb {
+        animation: none !important;
+        display: none;
+    }
+}
+
+/* ============================================================
+   Minimum touch target (WCAG 2.5.5): 44x44 dp.
+   ============================================================ */
+.btn, button, [role="button"] {
+    min-width: 44px;
+    min-height: 44px;
+}

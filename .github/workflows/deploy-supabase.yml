@@ -1,16 +1,38 @@
-name: Deploy Edge Functions
+name: Deploy Supabase Edge Functions
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
     paths:
-      - 'supabase/functions/**'
+      - "supabase/functions/**"
+      - ".github/workflows/deploy-supabase.yml"
   workflow_dispatch:
+
+# Minimum-blast-radius permissions; no contents:write, no id-token unless OIDC is configured.
+permissions:
+  contents: read
+
+# A second Supabase deploy can't race the first. Don't cancel in-progress
+# deploys; we'd rather queue than ship half a rollout.
+concurrency:
+  group: supabase-functions
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    name: deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # `production` is a GitHub Environment with required reviewers + secrets.
+    # Configure it once via Settings → Environments → New environment.
+    # NOTE: GitHub Actions does NOT permit `secrets.*` in environment.url —
+    # the value is set per-environment in the dashboard, or use the
+    # public Supabase dashboard root as a stand-in.
+    environment:
+      name: production
+      url: https://supabase.com/dashboard/projects
+
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +40,18 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy Edge Function
-        run: |
-          supabase functions deploy push-ring-notification --project-ref ebvotxcyfbzzoisgkdui --no-verify-jwt
+      - name: Deploy push-ring-notification
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          supabase functions deploy push-ring-notification \
+            --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Deploy verify-ring
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          supabase functions deploy verify-ring \
+            --project-ref "$SUPABASE_PROJECT_REF"

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; base-uri 'self'; form-action 'self';">
+    <meta name="theme-color" content="#f59e0b">
+    <title>QR Doorbell — Privacy Policy</title>
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        body { padding: 2rem; max-width: 720px; margin: auto; line-height: 1.6; }
+        h1 { color: var(--accent, #f59e0b); }
+        h2 { margin-top: 2rem; }
+        code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Privacy Policy</h1>
+    <p><strong>Last updated:</strong> 2026-05-18</p>
+
+    <p>
+        QR Doorbell is operated as a smart-doorbell service that lets a visitor "ring"
+        an owner via a QR code, and lets the owner respond via the QRVault Android app.
+        This page explains what we collect, why, and how long we keep it.
+    </p>
+
+    <h2>1. Data the guest provides</h2>
+    <ul>
+        <li>Optional free-text message (server-side stored as <em>ciphertext</em>
+            sealed to the owner's public key — neither QR Doorbell nor Supabase can
+            read it).</li>
+        <li>Approximate geolocation (lat / lon / accuracy) when the door has a
+            geofence configured. Only used at the moment of ringing; stored on the
+            ring row for audit and deleted with the ring (≤ 90 days).</li>
+        <li>A SHA-256-of-(server-secret-pepper, IP) hash. The raw IP never reaches
+            the database. Hashes are unlinkable across pepper rotations (90 days).</li>
+    </ul>
+
+    <h2>2. Data the owner provides</h2>
+    <ul>
+        <li>Email + password for sign-in (Supabase Auth).</li>
+        <li>House name, door names, door GPS anchor when pinned.</li>
+        <li>Android FCM token for ring delivery.</li>
+        <li>Optional encrypted backup of the owner's libsodium private key,
+            wrapped with an Argon2id-derived key. The passphrase never leaves the
+            owner's device.</li>
+    </ul>
+
+    <h2>3. Retention</h2>
+    <ul>
+        <li>Ring records: deleted after 90 days (<code>pg_cron</code> daily).</li>
+        <li>Audit log: deleted after 180 days.</li>
+        <li>Rate-limit + idempotency rows: deleted within 1 hour.</li>
+        <li>Push delivery log: deleted after 60 days.</li>
+    </ul>
+
+    <h2>4. Subprocessors</h2>
+    <ul>
+        <li>Supabase Inc. (database + Realtime + Edge Functions).</li>
+        <li>Google Cloud (Firebase Cloud Messaging for push delivery).</li>
+        <li>Cloudflare (Turnstile bot protection).</li>
+    </ul>
+
+    <h2>5. Your rights (GDPR Articles 15–22)</h2>
+    <ul>
+        <li><strong>Access / portability</strong>: from the QRVault app, Settings →
+            About → Export my data.</li>
+        <li><strong>Erasure</strong>: from the QRVault app, Settings → About →
+            Delete account. Cascades across every row referencing your user id and
+            removes you from <code>auth.users</code>.</li>
+        <li><strong>Rectification</strong>: edit your profile in Settings.</li>
+        <li><strong>Withdraw consent</strong>: revoke individual push tokens
+            from Settings → Devices, or rotate any door's QR code at any time.</li>
+    </ul>
+
+    <h2>6. Contact</h2>
+    <p>
+        Use the GitHub repo's <em>Private vulnerability reporting</em> for
+        security questions. For privacy questions, the maintainer contact is
+        listed in <code>CODEOWNERS</code> at the repository root.
+    </p>
+
+    <p style="margin-top: 3rem;"><a href="index.html">← Back to QR Doorbell</a></p>
+</body>
+</html>

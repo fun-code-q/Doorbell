@@ -1,0 +1,58 @@
+# Supabase project config for QR Doorbell.
+# Project ref must be set before running `supabase db push` / `supabase functions deploy`.
+# Generated 2026-05-18.
+
+project_id = "qr-doorbell"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 16
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = true
+# Listen only on tables we deliberately publish. Realtime never bypasses RLS.
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "https://example.invalid"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[edge_runtime]
+enabled = true
+inspector_port = 8083
+
+[functions.push-ring-notification]
+verify_jwt = false   # called by the pg_net webhook only; HMAC-authenticated, not JWT
+
+[functions.verify-ring]
+verify_jwt = false   # called by the guest browser; protected by Turnstile + token
+
+[functions.poll-receipts]
+verify_jwt = false   # scheduled via pg_cron; protected by HMAC
+
+[functions.geocode-address]
+verify_jwt = true    # called by authenticated owners only
+

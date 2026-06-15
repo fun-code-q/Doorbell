@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spanish strings (es). Machine-translated starting point with manual
+  review for the doorbell-specific vocabulary. Please run a native
+  reviewer pass before publishing this language to the Play Store.
+-->
+<resources>
+    <string name="app_name">QR Vault</string>
+
+    <!-- Power User Wizard -->
+    <string name="wizard_title">Configuración de usuario avanzado</string>
+    <string name="wizard_subtitle">La fiabilidad es clave para tu timbre inteligente.</string>
+    <string name="battery_title">Omitir el ahorro de batería</string>
+    <string name="battery_button">Conceder permiso</string>
+    <string name="overlay_title">Superposición de pantalla</string>
+    <string name="overlay_button">Activar superposición</string>
+    <string name="complete_title">¡Todo listo!</string>
+    <string name="complete_button">Empezar a usar QR Vault</string>
+
+    <!-- Home -->
+    <string name="home_title">QR Vault</string>
+    <string name="status_monitoring">Supervisando el timbre…</string>
+    <string name="last_ring">Último timbrazo: %1$s</string>
+    <string name="no_rings">Sin visitantes recientes</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="stat_missed">Perdidos</string>
+    <string name="stat_answered">Atendidos</string>
+    <string name="stat_total_doors">Puertas totales</string>
+    <string name="stat_paused">Pausadas</string>
+    <string name="filter_all">Todos</string>
+    <string name="filter_waiting">Esperando</string>
+    <string name="filter_responded">Atendidos</string>
+
+    <!-- Doors -->
+    <string name="doors_title">Puntos de puerta</string>
+    <string name="no_doors">Aún no hay puntos de puerta</string>
+    <string name="add_door">Añadir puerta</string>
+    <string name="edit_door">Editar puerta</string>
+    <string name="delete_door">Eliminar puerta</string>
+    <string name="door_name">Nombre de la puerta</string>
+    <string name="save">Guardar</string>
+    <string name="cancel">Cancelar</string>
+
+    <!-- Audit -->
+    <string name="audit_title">Registro de auditoría</string>
+    <string name="no_audit">Sin entradas todavía</string>
+
+    <!-- Settings -->
+    <string name="sound_alerts">Alertas de sonido</string>
+    <string name="vibration">Vibración</string>
+    <string name="push_notifications">Notificaciones push</string>
+    <string name="language">Idioma</string>
+    <string name="sign_out">Cerrar sesión</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_doors">Puertas</string>
+    <string name="nav_audit">Auditoría</string>
+    <string name="nav_settings">Ajustes</string>
+
+    <!-- General -->
+    <string name="back">Atrás</string>
+
+    <!-- Incoming ring -->
+    <string name="visitor_at_door">¡Visita en la puerta!</string>
+    <string name="accept_ring">Aceptar</string>
+    <string name="decline_ring">Rechazar</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_name">Timbrazos</string>
+    <string name="notif_channel_desc">Alertas de alta urgencia para visitas.</string>
+    <string name="notif_channel_active_name">Timbrazo activo</string>
+    <string name="notif_channel_active_desc">Notificación persistente mientras hay un timbrazo en curso.</string>
+    <string name="notif_title">¡Alerta de visita!</string>
+    <string name="notif_text">Alguien está tocando tu timbre.</string>
+
+    <!-- Quick replies -->
+    <string name="quick_reply_coming">¡Ya voy!</string>
+    <string name="quick_reply_leave_at_door">Déjalo en la puerta, gracias.</string>
+    <string name="quick_reply_busy_call_back">Ocupado ahora — vuelve en 10 min.</string>
+
+    <!-- About / privacy -->
+    <string name="about_title">Acerca de</string>
+    <string name="about_privacy_policy">Política de privacidad</string>
+    <string name="about_terms">Términos del servicio</string>
+    <string name="about_oss_licenses">Licencias de código abierto</string>
+    <string name="about_security">Modelo de seguridad</string>
+    <string name="about_export_settings">Exportar configuración</string>
+    <string name="about_import_settings">Importar configuración</string>
+    <string name="about_change_email">Cambiar correo</string>
+    <string name="about_change_email_help">Enviaremos un enlace de confirmación a la nueva dirección. El cambio no se aplica hasta que lo toques.</string>
+    <string name="about_delete_account">Eliminar cuenta</string>
+</resources>

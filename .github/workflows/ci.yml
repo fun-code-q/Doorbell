@@ -2,26 +2,27 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main"]
   pull_request:
-    branches: ["main", "master"]
+    branches: ["main"]
+
+permissions:
+  contents: read
 
 jobs:
-  lint-and-validate:
+  guest-web:
+    name: Guest web (lint + syntax)
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
       - name: Lint
         run: npm run lint
@@ -29,5 +30,39 @@ jobs:
       - name: Syntax checks
         run: npm run check:syntax
 
-      - name: Build check
-        run: npm run build
+      - name: Confirm SRI placeholders were rotated in PRs that touch index.html
+        # We don't fail on placeholder presence in main; we just emit a
+        # workflow warning. CI cannot compute SRI for real (would need
+        # outbound fetch + a writable tree). This is a reminder to run
+        # `node scripts/compute-sri.mjs` before deploying.
+        run: |
+          if grep -q 'PLACEHOLDER' public/index.html; then
+            echo "::warning::index.html still contains SRI PLACEHOLDER tokens. Run \`node scripts/compute-sri.mjs\` before deploy."
+          fi
+
+  audit:
+    name: npm audit (high)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  edge-tests:
+    name: Edge Function tests (Deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Deno
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh -s v2.0.0
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+      - name: Run Deno tests
+        run: |
+          deno test --allow-net=challenges.cloudflare.com,oauth2.googleapis.com,fcm.googleapis.com supabase/functions/_shared/hmac.test.ts

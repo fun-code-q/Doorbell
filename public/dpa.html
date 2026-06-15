@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; base-uri 'self'; form-action 'self';">
+    <meta name="theme-color" content="#f59e0b">
+    <title>QR Doorbell — Data Processing Addendum</title>
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        body { padding: 2rem; max-width: 800px; margin: auto; line-height: 1.6; }
+        h1 { color: var(--accent, #f59e0b); }
+        h2 { margin-top: 2rem; }
+        h3 { margin-top: 1.5rem; color: var(--accent, #f59e0b); }
+        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+        th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+        th { color: var(--accent, #f59e0b); }
+        code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Data Processing Addendum (DPA)</h1>
+    <p>
+        This DPA forms part of the <a href="terms.html">Terms of Service</a>. It applies when QR
+        Doorbell (the "Processor") processes Personal Data on behalf of a Controller — typically
+        a landlord, property management company, or coworking operator that deploys QR Doorbell
+        across multiple units. It complies with Article 28 GDPR.
+    </p>
+
+    <h2>1. Roles &amp; subject matter</h2>
+    <p>
+        <strong>Controller:</strong> the legal entity that uses QR Doorbell to receive doorbell
+        rings on behalf of an organisation. <strong>Processor:</strong> the QR Doorbell maintainer
+        (see <code>CODEOWNERS</code>). Processing covers the operation of the doorbell service
+        described in the <a href="security.html">security model</a> for the duration of the
+        Controller's use of the service.
+    </p>
+
+    <h2>2. Categories of data &amp; data subjects</h2>
+    <table>
+        <tr><th>Data subject</th><th>Categories</th><th>Source</th></tr>
+        <tr><td>Property owner</td><td>Email, FCM token, device label, encrypted private key backup, timezone, language</td><td>Sign-up &amp; in-app actions</td></tr>
+        <tr><td>House member</td><td>Email, role, FCM token</td><td>Owner invite</td></tr>
+        <tr><td>Visitor</td><td>Pepper-hashed IP, geolocation at ring time, encrypted message, optional encrypted photo, optional encrypted voice</td><td>Guest web page</td></tr>
+    </table>
+
+    <h2>3. Sub-processors</h2>
+    <table>
+        <tr><th>Sub-processor</th><th>Purpose</th><th>Region</th></tr>
+        <tr><td>Supabase Inc.</td><td>Database, Realtime, Edge Functions, Auth</td><td>EU (Frankfurt)</td></tr>
+        <tr><td>Google LLC (Firebase)</td><td>FCM push delivery</td><td>EU + US (Google's regional routing)</td></tr>
+        <tr><td>Cloudflare Inc.</td><td>Turnstile bot protection</td><td>Global edge</td></tr>
+    </table>
+    <p>
+        Material changes to this list will be notified to the Controller 30 days in advance. The
+        Controller may object in writing.
+    </p>
+
+    <h2>4. Security measures</h2>
+    <p>
+        The Processor implements the technical and organisational measures in the
+        <a href="security.html">Security Model</a>, including E2E encryption, RLS, HMAC-signed
+        webhooks, rate limiting, audit-log redaction, retention windows, and the OSS-license
+        screen for transparency.
+    </p>
+
+    <h2>5. International transfers</h2>
+    <p>
+        Where personal data is transferred outside the EEA (notably to Google for FCM delivery),
+        the transfer is covered by Standard Contractual Clauses (SCC, 2021/914/EU) entered into
+        with the relevant sub-processor.
+    </p>
+
+    <h2>6. Data subject rights</h2>
+    <p>
+        Visitors and owners may exercise their GDPR Articles 15–22 rights at any time:
+    </p>
+    <ul>
+        <li><strong>Access &amp; portability:</strong> Settings → About → Export my data (JSON).</li>
+        <li><strong>Erasure:</strong> Settings → About → Delete account. Cascades server-side; nothing of yours remains.</li>
+        <li><strong>Rectification:</strong> edit your profile in Settings.</li>
+        <li><strong>Restriction / objection:</strong> via the maintainer contact below.</li>
+    </ul>
+
+    <h2>7. Retention</h2>
+    <table>
+        <tr><th>Data</th><th>Retention</th></tr>
+        <tr><td>Doorbell rings</td><td>Auto-deleted after 90 days</td></tr>
+        <tr><td>Audit log</td><td>Auto-deleted after 180 days</td></tr>
+        <tr><td>Rate-limit + idempotency rows</td><td>Auto-deleted after 1 hour</td></tr>
+        <tr><td>Push delivery log</td><td>Auto-deleted after 60 days</td></tr>
+        <tr><td>Failed push attempts (DLQ)</td><td>Auto-deleted after 30 days (status=dead) or 7 days (status=sent)</td></tr>
+    </table>
+
+    <h2>8. Data Protection Officer</h2>
+    <p>
+        Until the Processor reaches the GDPR Art. 37 threshold, a DPO is not strictly required.
+        For privacy enquiries, contact the maintainer listed in <code>CODEOWNERS</code>. For
+        production B2B deployments processing data from more than 1,000 visitors per month, a
+        named DPO should be appointed and listed here.
+    </p>
+
+    <h2>9. Breach notification</h2>
+    <p>
+        The Processor will notify the Controller of any Personal Data Breach without undue delay
+        and in any event within 48 hours of becoming aware of it, including a description of the
+        breach, the categories and approximate number of data subjects affected, and the measures
+        taken or proposed.
+    </p>
+
+    <p style="margin-top: 3rem;"><a href="index.html">← Back to QR Doorbell</a></p>
+</body>
+</html>

@@ -1,32 +1,92 @@
-# Environment files
+# ============================================================
+# QR Doorbell — repo-root .gitignore (hardened May 2026)
+# Each module also has its own .gitignore for build/IDE noise.
+# ============================================================
+
+# ----- Environment / runtime config -----
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
-# Config with real credentials (users copy config.js → config.local.js)
+# Runtime client config with real credentials
 public/config.local.js
+public/runtime-config.js
 
-# Dependencies
+# ----- Dependencies -----
 node_modules/
+**/node_modules/
 
-# Build output
+# ----- Build outputs -----
 dist/
 build/
+**/build/
+.gradle/
+**/.gradle/
+.kotlin/
+**/.kotlin/
+out/
+**/out/
 
-# OS files
+# ----- OS / Editor -----
 .DS_Store
 Thumbs.db
 *.log
-
-# Editor
 .vscode/
 .idea/
+*.iml
+.fleet/
+.cursor/
 
-# Generated assets
+# ----- Generated / cached assets -----
 public/generated-icons/
+.expo/
+**/.expo/
 
-# Private Signing Keys
+# ============================================================
+# SECRETS — these patterns are deliberately broad and must
+# never be relaxed. If you genuinely need a key on disk, it
+# belongs in a secrets manager (GCP Secret Manager / EAS
+# secrets / GitHub Actions secrets), not the repo.
+# ============================================================
+
+# Android / Java signing
 *.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.cer
+*.crt
+*.key
+keystore.properties
+key.properties
 
-# Private Configurations
-public/config.local.js
+# Google service accounts / Firebase admin SDK
+*service-account*.json
+*service_account*.json
+*serviceAccountKey*.json
+*firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
+gha-creds-*.json
+
+# iOS / Apple
+*.mobileprovision
+*.provisionprofile
+
+# Android SDK / signing paths
+**/local.properties
+local.properties
+
+# Misc credential containers people sometimes drop in a repo
+*.token
+*.secret
+secrets/
+.secrets/
+
+# Base64 credentials
+google-services-b64.txt
+keystore-b64.txt
